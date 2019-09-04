@@ -75,15 +75,39 @@ class tui (object):
 
     def run (self):
         self.scr.clear()
-        self.scr.bkgd('.', self.hl.normal_text)
-        self.scr.addstr(1, 0, 'colors: {}, color pairs: {}.'.format(curses.COLORS, curses.COLOR_PAIRS))
+        self.scr.bkgd(' ', self.hl.normal_text)
         self.scr.refresh()
+
+        self.scr.addstr(1, 0, 'colors: {}, color pairs: {}.'.format(curses.COLORS, curses.COLOR_PAIRS))
         for i in range(len(self.cli.file)):
             self.scr.addstr(i + 2, 0, 'input file #{}: {!r}'.format(i + 1, self.cli.file[i]))
-        w = curses.newwin(1, curses.COLS, 0, 0)
-        w.bkgd(' ', self.hl.normal_title)
-        w.addstr(0, 0, 'ebfe - ver 0.00')
-        w.refresh()
+        
+        from ebfe.window import window, window_manager
+        wm = window_manager()
+        w1 = wm.add_window(0, 0, curses.COLS, 1, self.hl.normal_title)
+        #w1 = window(0, 0, curses.COLS, 1, self.hl.normal_title)
+        w1.addstr(0, 0, 'ebfe - ver 0.01')
+        w1.sync()
+
+        w2 = wm.add_window(10, 15, curses.COLS-20, 1, self.hl.normal_title)
+        w2.addstr(2, 0, 'Another one-line window here just for lolz')
+        w2.sync()
+
+        w3 = wm.add_window(1, 5, curses.COLS-2, 6, self.hl.normal_status, box=True, box_title="Weird Window Title")
+        w3.addstr(0, 0, 'Some status here...hmmmmm')
+        w3.sync()
+        w3.addstr(0, 3, '|------> Seems to be working just fine at this time :-)')
+        w3.sync()
+
+        w4 = wm.add_window(32, 18, 40, 10, box=True)
+        w4.addstr(2, 2, "High five!")
+        w4.sync()
+
+        wm.refresh()
+        #w = curses.newwin(1, curses.COLS, 0, 0)
+        #w.bkgd(' ', self.hl.normal_title)
+        #w.addstr(0, 0, 'ebfe - ver 0.00')
+        #w.refresh()
         self.scr.getkey()
 
 
