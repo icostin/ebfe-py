@@ -64,6 +64,37 @@ normal_text fg=grey bg=blue
 '''
 
 #-----------------------------------------------------------------------------
+"""
+A container for window objects which will virtually fill all available space
+Its children (containers) would be stacked on H or V axes
+It can only have one associated window
+"""
+class container ():
+    def __init__ (self, parent=None,
+                  w=100.0, h=100.0,
+                  resizable=False):
+        self.parent = parent
+        self.resizable = resizable
+        self.w = w
+        self.h = h
+        self.window = None
+        self.children = []
+
+    def set_window (self, win):
+        self.window = win
+
+    def add_child (self, w=100.0, h=100.0, resizable=False):
+        c = container(self, w, h, resizable)
+        self.children.append(c)
+        return c
+
+    def dbg_display (self, scr, indent=0):
+        scr.addstr('\n' + indent*'    ' + 'Container: w={}, h={}'.format(self.w, self.h))
+        if len(self.children) > 0: indent += 1
+        for c in self.children:
+            c.dbg_display(scr, indent)
+        
+#-----------------------------------------------------------------------------
 class window ():
     """
     Most of __init__ parameters have default values
@@ -174,7 +205,15 @@ class tui (object):
         self.scr.addstr(1, 0, 'colors: {}, color pairs: {}.'.format(curses.COLORS, curses.COLOR_PAIRS))
         for i in range(len(self.cli.file)):
             self.scr.addstr(i + 2, 0, 'input file #{}: {!r}'.format(i + 1, self.cli.file[i]))
-        
+       
+        master = container()
+        top_bar = master.add_child(100.0, 0.1)         # 0.1 should mean 1 line
+        middle = master.add_child(100.0, 89.9, True)
+        status = master.add_child(100.0, 10.0, True)
+        mid_hex = middle.add_child(70.0, 100.0, True)
+        mid_info = middle.add_child(30.0, 100.0, True)
+        master.dbg_display(self.scr)
+
         w1 = self.add_window(0, 0, curses.COLS, 1, self.hl.normal_title)
         if w1:
             w1.addstr(0, 0, 'ebfe - ver 0.01')
