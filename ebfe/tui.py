@@ -76,7 +76,8 @@ class window ():
                   w=0, h=0,
                   attr=curses.A_NORMAL,
                   background=" ", box=False,
-                  box_title=""):
+                  box_title="",
+                  hl_set = None):
         self.x = x
         self.y = y
         self.w = w
@@ -85,6 +86,7 @@ class window ():
         self.background = background
         self.has_border = box
         self.box_title = box_title
+        self.hl_set = hl_set
 
         # If it should have a border then we create the parent window
         if box:
@@ -130,6 +132,26 @@ class window ():
     def addstr (self, x, y, text):
         if self.window:
             self.window.addstr(y, x, text)
+
+    def add_hl_text (self, hl_text, x = None, y = None, x2 = 0, hl_begin = '<<', hl_end = '>>', hl_set = None):
+        if hl_set is None: self.hl_set
+        if x is None or y is None:
+            xx, yy = self.window.getyx()
+            if x is None: x = xx
+            if y is None: y = yy
+        last_hl = 'normal_text'
+        for line in hl_text.splitlines():
+            for hs in ''.join((last_hl, hl_end, line)).split(hl_begin):
+                hl, text = hs.split(hl_end, 1)
+                last_hl = hl
+                self.window.attrset(getattr(hl_set, hl))
+                if x is not None:
+                    self.window.addstr(y, x, text)
+                    x = None
+                else:
+                    self.window.addstr(text)
+            x = x2
+            y = y + 1
 
 #-----------------------------------------------------------------------------
 class tui (object):
@@ -194,7 +216,19 @@ class tui (object):
 
         w4 = self.add_window(32, 18, 40, 10, box=True)
         if w4:
-            w4.addstr(2, 2, "High five!")
+            w4.addstr(2, 0, "High five!")
+            w4.add_hl_text('''
+<<
+An old man by a seashore
+At the end of day
+Gazes the horizon
+With seawinds in his face
+Tempest-tossed island
+Seasons all the same
+Anchorage unpainted
+And a ship without a name
+'''.strip(),
+                x = 4, y = 1, x2 = 2)
             w4.sync()
 
         w5 = self.add_window(40, 25, 1, 10, box=True)
