@@ -33,5 +33,6 @@ def main ():
 
     globals()['cmd_' + cli.cmd](cli)
 
-
+if __name__ == '__main__':
+    main()
 
