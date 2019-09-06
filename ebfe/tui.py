@@ -1,5 +1,8 @@
 import functools
 import curses
+import ebfe
+import traceback
+from zlx.io import emsg
 
 #-----------------------------------------------------------------------------
 class tui_hl_set (object):
@@ -19,15 +22,13 @@ class tui_hl_set (object):
             cyan = 6,
             grey = 7,
             )
+    pair_seed = 1
+
     def __init__ (self, text = None):
         object.__init__(self)
         self.first_hl_name = None
-        self.reset()
         if text: self.parse(text)
 
-    def reset (self):
-        self.pair_seed = 1
-    
     def add (self, name, 
             fg = 7, bg = 0, attr = curses.A_NORMAL, 
             fg256 = None, bg256 = None, attr256 = None):
@@ -38,10 +39,11 @@ class tui_hl_set (object):
             if bg256 is not None: bg = bg256
             if attr256 is not None: attr = attr256
 
-        pair = self.pair_seed
-        self.pair_seed += 1
+        pair = self.__class__.pair_seed
+        self.__class__.pair_seed += 1
 
         curses.init_pair(pair, fg, bg)
+        #emsg('pair={} fg={} bg={}', pair, fg, bg)
         v = attr | curses.color_pair(pair)
         if not self.first_hl_name: self.first_hl_name = name
         setattr(self, name, v)
@@ -154,6 +156,7 @@ class window ():
                     else:
                         self.window.addstr(text)
                 except:
+                    traceback.print_tb()
                     return
             x = x2
             y = y + 1
@@ -221,17 +224,19 @@ class tui (object):
 
         w4 = self.add_window(32, 18, 40, 20, box=True)
         if w4:
-            w4.addstr(2, 0, "High five!")
+            #w4.addstr(2, 0, "High five!")
             w4.add_hl_text('''
 <<title>> The Islander <<normal>>
+
 <<first>>An<<normal>> old man by a seashore
 At the end of day
 Gazes the horizon
-With seawinds in his face
-Tempest<<sign>>-<<normal>>tossed island
-Seasons all the same
-Anchorage unpainted
-And a ship without a <<last>>name
+With seawinds in his face<<sign>>.<<normal>>
+Tempest<<sign>>-<<normal>>tossed island<<sign>>,<<normal>>
+Seasons all the same<<sign>>,<<normal>>
+Anchorage unpainted<<sign>>,<<normal>>
+And a ship without a <<last>>name<<sign>>...
+
 '''.strip(),
                 x = 4, y = 1, x2 = 2, 
                 hl_set = tui_hl_set('''
