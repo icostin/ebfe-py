@@ -21,6 +21,7 @@ class tui_hl_set (object):
             )
     def __init__ (self, text = None):
         object.__init__(self)
+        self.first_hl_name = None
         self.reset()
         if text: self.parse(text)
 
@@ -41,7 +42,9 @@ class tui_hl_set (object):
         self.pair_seed += 1
 
         curses.init_pair(pair, fg, bg)
-        setattr(self, name, attr | curses.color_pair(pair))
+        v = attr | curses.color_pair(pair)
+        if not self.first_hl_name: self.first_hl_name = name
+        setattr(self, name, v)
 
     def parse (self, text):
         for line in text.splitlines():
@@ -139,17 +142,19 @@ class window ():
             xx, yy = self.window.getyx()
             if x is None: x = xx
             if y is None: y = yy
-        last_hl = 'normal_text'
+        active_hl = hl_set.first_hl_name
         for line in hl_text.splitlines():
-            for hs in ''.join((last_hl, hl_end, line)).split(hl_begin):
-                hl, text = hs.split(hl_end, 1)
-                last_hl = hl
-                self.window.attrset(getattr(hl_set, hl))
-                if x is not None:
-                    self.window.addstr(y, x, text)
-                    x = None
-                else:
-                    self.window.addstr(text)
+            for hs in ''.join((active_hl, hl_end, line)).split(hl_begin):
+                active_hl, text = hs.split(hl_end, 1)
+                self.window.attrset(getattr(hl_set, active_hl))
+                try:
+                    if x is not None:
+                        self.window.addstr(y, x, text)
+                        x = None
+                    else:
+                        self.window.addstr(text)
+                except:
+                    return
             x = x2
             y = y + 1
 
@@ -214,21 +219,28 @@ class tui (object):
             w3.addstr(0, 3, '|------> Seems to be working just fine at this time :-)')
             w3.sync()
 
-        w4 = self.add_window(32, 18, 40, 10, box=True)
+        w4 = self.add_window(32, 18, 40, 20, box=True)
         if w4:
             w4.addstr(2, 0, "High five!")
             w4.add_hl_text('''
-<<
-An old man by a seashore
+<<title>> The Islander <<normal>>
+<<first>>An<<normal>> old man by a seashore
 At the end of day
 Gazes the horizon
 With seawinds in his face
-Tempest-tossed island
+Tempest<<sign>>-<<normal>>tossed island
 Seasons all the same
 Anchorage unpainted
-And a ship without a name
+And a ship without a <<last>>name
 '''.strip(),
-                x = 4, y = 1, x2 = 2)
+                x = 4, y = 1, x2 = 2, 
+                hl_set = tui_hl_set('''
+normal fg=grey bg=black attr=normal
+first fg=yellow bg=black attr=bold
+last fg=cyan bg=black attr=bold
+title fg=yellow bg=blue attr=bold
+sign fg=red bg=black attr=bold
+'''))
             w4.sync()
 
         w5 = self.add_window(40, 25, 1, 10, box=True)
