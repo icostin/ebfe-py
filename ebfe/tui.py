@@ -71,12 +71,14 @@ It can only have one associated window
 """
 class container ():
     def __init__ (self, parent=None,
-                  w=100.0, h=100.0,
+                  wp=100.0, hp=100.0,
                   resizable=False):
         self.parent = parent
         self.resizable = resizable
-        self.w = w
-        self.h = h
+        self.wp = wp
+        self.hp = hp
+        self.w = 0
+        self.h = 0
         self.window = None
         self.children = []
 
@@ -89,10 +91,33 @@ class container ():
         return c
 
     def dbg_display (self, scr, indent=0):
-        scr.addstr('\n' + indent*'    ' + 'Container: w={}, h={}'.format(self.w, self.h))
+        scr.addstr('\n' + indent*'    ' + 'Container: w%={}, h%={}, (w:{}, h:{})'.format(self.wp, self.hp, self.w, self.h))
         if len(self.children) > 0: indent += 1
         for c in self.children:
             c.dbg_display(scr, indent)
+
+    def resize (self, scr_w=0, scr_h=0, carry_w=0, carry_h=0):
+        if scr_w <= 0 or scr_h <= 0:
+            return
+
+        self.w = round((scr_w * self.wp)/100.0)
+        if self.resizable:
+            self.w -= carry_w
+            carry_w = 0
+        if self.w <= 0:
+            self.w = 1
+            carry_w = 1
+
+        self.h = round((scr_h * self.hp)/100.0)
+        if self.resizable:
+            self.h -= carry_h
+            carry_h = 0
+        if self.h <= 0:
+            self.h = 1
+            carry_h = 1
+
+        for c in self.children:
+            c.resize(self.w, self.h, carry_w, carry_h)
         
 #-----------------------------------------------------------------------------
 class window ():
@@ -207,11 +232,12 @@ class tui (object):
             self.scr.addstr(i + 2, 0, 'input file #{}: {!r}'.format(i + 1, self.cli.file[i]))
        
         master = container()
-        top_bar = master.add_child(100.0, 0.1)         # 0.1 should mean 1 line
-        middle = master.add_child(100.0, 89.9, True)
+        top_bar = master.add_child(100.0, 0.0)         # 0.1 should mean 1 line
+        middle = master.add_child(100.0, 90.0, True)
         status = master.add_child(100.0, 10.0, True)
         mid_hex = middle.add_child(70.0, 100.0, True)
         mid_info = middle.add_child(30.0, 100.0, True)
+        master.resize(curses.COLS, curses.LINES)
         master.dbg_display(self.scr)
 
         w1 = self.add_window(0, 0, curses.COLS, 1, self.hl.normal_title)
