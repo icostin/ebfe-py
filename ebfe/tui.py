@@ -65,6 +65,55 @@ normal_text fg=grey bg=blue
 
 #-----------------------------------------------------------------------------
 """
+It's handling and translating input into commands
+Will repaint the screen on receiving display commands
+"""
+class displayinput ():
+    def __init__ (self, stdscr):
+        self.scr = stdscr
+        self.scr.clear()
+        #self.scr.bkgd(' ', self.hl.normal_text)
+        self.scr.refresh()
+        self.scr.addstr(1, 0, 'colors: {}, color pairs: {}.'.format(curses.COLORS, curses.COLOR_PAIRS))
+        # Make waiting for input non-blocking
+        self.scr.nodelay(True)
+
+
+    def get_display_size ():
+        return (curses.COLS, curses.LINES)
+
+    # Returns a tuple containing the state of ALT/escape key and the translated input
+    # wait for 0.1 seconds before returning None if no key was pressed
+    def get_input (self):
+        esc = False
+        curses.halfdelay(1)
+        
+        try:
+            #c = self.scr.getkey()
+            c = self.scr.getkey()
+            # is it ESC or ALT+KEY ?
+            if c == '\x1b':
+                esc = True
+                c = self.scr.getkey()
+            return (esc, c)
+
+        except curses.error:
+            self.scr.addstr(22, 0, '{}'.format(curses.error))
+            if esc:
+                return (False, 'ESC')
+            else:
+                return None
+
+    def display (self, x, y, text):
+        self.scr.addstr(y, x, text)
+        self.scr.noutrefresh()
+
+    # Refreshes the screen and updates windows content
+    def refresh (self):
+        curses.doupdate()
+
+#-----------------------------------------------------------------------------
+"""
 A container for window objects which will virtually fill all available space
 Its children (containers) would be stacked on H or V axes
 It can only have one associated window
@@ -240,6 +289,8 @@ class tui (object):
         master.resize(curses.COLS, curses.LINES)
         master.dbg_display(self.scr)
 
+        di = displayinput(self.scr)
+
         w1 = self.add_window(0, 0, curses.COLS, 1, self.hl.normal_title)
         if w1:
             w1.addstr(0, 0, 'ebfe - ver 0.01')
@@ -272,8 +323,15 @@ class tui (object):
         #w.bkgd(' ', self.hl.normal_title)
         #w.addstr(0, 0, 'ebfe - ver 0.00')
         #w.refresh()
-        self.scr.getkey()
-
+        
+        #self.scr.getkey()
+        while(True):
+            received_input = di.get_input()
+            if received_input:
+                di.display(0, 20, 'Input: {}        '.format(received_input))
+                di.refresh()
+                if received_input[1] == 'Q' or received_input[1] == 'q':
+                    break
 
 #-----------------------------------------------------------------------------
 def run (stdscr, cli):
