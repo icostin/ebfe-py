@@ -63,9 +63,14 @@ class driver (object):
         '''
         self.style_map = {}
         for k, v in style_map.items():
-            self.style_map[k] = self.register_style(v)
+            self.style_map[k] = self.build_style(v)
 
-    def register_style (self, style):
+    def build_style (self, style):
+        '''
+        Process the tui attributes and colors and generate whatever is needed
+        by the driver to display text with those specs.
+        Overload this!
+        '''
         return style
 
     def get_message (self):
@@ -122,6 +127,10 @@ class window (object):
     A window has width and height and a list of updates.
     The updates are organized as a list for each row where elements are
     strips.
+    Recommended overloads:
+    - various message handlers: handle_xxx() (handle_timeout, handle_char)
+    - refresh_strip() - to generate output for a row portion when asked
+    - resize() - if the window has children or custom fields need adjusting
     '''
 
     def __init__ (self, width = 0, height = 0, default_style_name = 'default'):
@@ -149,6 +158,12 @@ class window (object):
         row_strips.append(strip(text, style_name, col))
         pass
 
+    def integrate_updates (self, row_delta, col_delta, updates):
+        for row in updates:
+            for s in updates[row]:
+                self.write(row + row_delta, s.col + col_delta, s.style_name, s.text)
+        return
+
     def refresh_strip (self, row, col, width):
         '''
         Refreshes the content a strip of the window.
@@ -168,9 +183,11 @@ class window (object):
             height = None,
             width = None):
         '''
-        Calls refresh() for each row in given range.
+        Calls refresh_strip() for each row in given range.
         if height or width are left None they will cover the window to its
         border.
+        Calling this method without explicit args causes entire window to be
+        redrawn.
         No need to overload this.
         '''
         if start_row >= self.height or start_col >= self.width: return
@@ -187,8 +204,8 @@ class window (object):
     def resize (self, width, height):
         '''
         Updates window size and refreshes whole content.
-        No need to overload unless for some reason refreshing the entire
-        content is not desired after a resize
+        Overload this if the window has children or addition state needs to
+        be adjusted
         '''
         self.width = width
         self.height = height
@@ -219,10 +236,16 @@ class window (object):
         self.wipe_updates()
         return u
 
-class app (window):
+class application (window):
     '''
     Represents a Text UI application.
+    This class represents the root window of the app plus a way of 
+    describing the styles that are used when displaying text
     Derive to taste.
+    Recommended overloads:
+    - generate_style_map() - to generate style according to driver's capabilities
+    - various message handlers: handle_xxx() (handle_timeout, handle_char)
+    - refresh_strip() - to generate output for a row portion when asked
     '''
 
     def __init__ (self):
@@ -236,6 +259,9 @@ class app (window):
         '''
         Produces a mapping name -> style where styles should be adapted
         to given capabilities.
+        Normally this is called when the app is getting connected to a driver
+        after obtaining the style capabilities of the driver.
+
         '''
         default_style = style(
                 attr = A_NORMAL,
@@ -249,6 +275,7 @@ class app (window):
         No need to overload this.
         '''
         try:
+            app.generate_style_map(drv.get_style_caps())
             ss = drv.get_screen_size()
             app.resize(width = ss.width, height = ss.height)
             while True:
