@@ -13,6 +13,14 @@ class driver (ebfe.tui.driver):
         yx = self.scr.getyx()
         return ebfe.tui.resize_message(width = yx[1], height = yx[0])
 
+    def get_style_caps (self):
+        return style_caps(
+                attr = A_NORMAL,
+                fg_count = curses.COLORS,
+                bg_count = curses.COLORS,
+                fg_default = 7,
+                bg_default = 0)
+
     def render (self, updates):
         return
 
