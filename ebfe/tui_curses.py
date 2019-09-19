@@ -7,15 +7,17 @@ class driver (ebfe.tui.driver):
         self.scr = scr
 
     def get_message (self):
-        return ebfe.tui.message('char', ch = self.scr.getch())
+        return ebfe.tui.message(name = 'char', ch = chr(self.scr.getch()))
 
     def get_screen_size (self):
         yx = self.scr.getyx()
-        return ebfe.tui.screen_size(width = yx[1], height = yx[0])
+        return ebfe.tui.resize_message(width = yx[1], height = yx[0])
 
+    def render (self, updates):
+        return
 
-def wrapped_run (stdscr, opts, func):
-    func(driver(stdscr), opts)
+def wrapped_run (stdscr, func):
+    return func(driver(stdscr))
 
-def run (opts, func):
-    curses.wrapper(wrapped_run, opts, func)
+def run (func):
+    return curses.wrapper(wrapped_run, func)

@@ -1,6 +1,7 @@
 import sys
 import argparse
 import ebfe.app
+from zlx.io import dmsg
 
 def cmd_test (cli):
     if not cli.file:
@@ -11,17 +12,17 @@ def cmd_test (cli):
     ebfe.old_tui.main(cli)
     return
 
-def boot_driver_curses (cli, func):
-    import ebfe.tui_curses
-    ebfe.tui_curses.run(cli, func)
-    pass
+def boot_driver_curses (cli):
+    from ebfe.tui_curses import run
+    return run
 
-def boot_driver_mock (cli, func):
+def boot_driver_mock (cli):
     raise RuntimeError('todo: mock driver')
-    return
 
 def cmd_interactive_edit (cli):
-    globals()['boot_driver_' + cli.tui_driver](cli, ebfe.app.main)
+    app = ebfe.app.editor(cli)
+    drv_runner = globals()['boot_driver_' + cli.tui_driver](cli)
+    ebfe.tui.run(drv_runner, app)
     return
 
 def main ():
@@ -29,18 +30,19 @@ def main ():
     ap = argparse.ArgumentParser(
             description = 'hex editor and binary formats inspector tool')
     ap.set_defaults(cmd='interactive_edit')
-    ap.add_argument('-v', '--verbose', help = 'be verbose', 
+    ap.add_argument('-v', '--verbose', help = 'be verbose',
             action = 'store_true', default = False)
-    ap.add_argument('-t', '--test', dest = 'cmd', 
+    ap.add_argument('-t', '--test', dest = 'cmd',
             action = 'store_const', const = 'test', help = 'run the tests')
-    ap.add_argument('-D', '--tui-driver', dest = 'tui_driver',
-            default = 'curses', help = 'select the TUI driver')
+    ap.add_argument('-d', '--tui-driver', metavar = 'DRIVER',
+            dest = 'tui_driver', default = 'curses',
+            help = 'select the TUI driver')
     ap.add_argument('file', nargs = '*', help = 'input file(s)')
 
     cli = ap.parse_args(args)
     cli.ap = ap
 
-    
+
     if cli.verbose: print('argv={!r} cli={!r}'.format(sys.argv, cli))
 
     globals()['cmd_' + cli.cmd](cli)
