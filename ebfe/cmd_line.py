@@ -1,7 +1,6 @@
 import sys
 import argparse
 import ebfe.app
-from zlx.io import dmsg
 
 def cmd_test (cli):
     if not cli.file:
