@@ -275,7 +275,7 @@ class application (window):
         No need to overload this.
         '''
         try:
-            app.generate_style_map(drv.get_style_caps())
+            drv.register_styles(app.generate_style_map(drv.get_style_caps()))
             ss = drv.get_screen_size()
             app.resize(width = ss.width, height = ss.height)
             while True:

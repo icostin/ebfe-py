@@ -1,3 +1,4 @@
+import datetime
 import ebfe.tui as tui
 from zlx.io import dmsg
 
@@ -13,9 +14,15 @@ class title_bar (tui.window):
         self.title = title
 
     def refresh_strip (self, row, col, width):
-        text = self.title[col : col + width].ljust(width)
+        t = str(datetime.datetime.now())
 
-        self.write(0, col, 'default', text)
+        text = self.title[col : col + width]
+        if len(text) + len(t) >= self.width:
+            t = ''
+        text = text.ljust(width - len(t))
+        text += t
+
+        self.write(0, col, 'normal_title', text)
         return
 
 class editor (tui.application):
@@ -27,6 +34,16 @@ class editor (tui.application):
         tui.application.__init__(self)
         self.tick = 0
         self.title_bar = title_bar('ebfe - Exuberant Binary File Editor')
+        return
+
+    def generate_style_map (self, style_caps):
+        sm = {}
+        sm['default'] = tui.style(
+                attr = tui.A_NORMAL,
+                fg = style_caps.fg_default,
+                bg = style_caps.bg_default)
+        sm['normal_title'] = tui.style(attr = tui.A_NORMAL, fg = 1, bg = 7)
+        return sm
 
     def resize (self, width, height):
         self.width = width
@@ -49,6 +66,7 @@ class editor (tui.application):
 
     def handle_timeout (self, msg):
         self.tick += 1
+        self.refresh(start_row = 0, height = 1)
         self.refresh(
                 start_row = 1,
                 start_col = 0,
