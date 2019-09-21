@@ -7,15 +7,39 @@ class driver (tui.driver):
     def __init__ (self, scr):
         tui.driver.__init__(self)
         self.scr = scr
-        self.scr.notimeout(False)
-        self.scr.timeout(1)
+        self.scr.clear()
+        self.scr.refresh()
+        #self.scr.notimeout(False)
+        #self.scr.timeout(1000)
         self.scr.nodelay(True)
         self.pair_seed = 1
 
+    # Returns a tuple containing the state of ALT/escape key and the translated input
+    # wait for 0.1 seconds before returning None if no key was pressed
     def get_message (self):
+        esc = False
+        curses.halfdelay(1)
+        
+        try:
+            #c = self.scr.getkey()
+            c = self.scr.getkey()
+            # is it ESC or ALT+KEY ?
+            if c == '\x1b':
+                esc = True
+                c = self.scr.getkey()
+            return tui.message(name = 'keystate', ch = (esc, c))
+
+        except curses.error:
+            #self.scr.addstr(22, 0, '{}'.format(curses.error))
+            if esc:
+                return tui.message(name = 'keystate', ch = (False, 'ESC'))
+            else:
+                return tui.message(name = 'timeout')
+
+    def get_old_message (self):
         key = self.scr.getch()
         if key == -1:
-            time.sleep(1 / 10)
+            #time.sleep(1 / 10)
             return tui.message(name = 'timeout')
 
         elif key == curses.KEY_RESIZE:
