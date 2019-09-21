@@ -82,21 +82,21 @@ class stream_edit_window (tui.window):
                     x = '  '
                     c = ' '
                     n = self.items_per_line - o
-                else: 
+                else:
                     x = '--'
                     c = ' '
                     n = blk.size
                 text += ' '.join((x for i in range(n)))
-                cstrip += c * range(n)
+                cstrip += c * n
             elif blk.kind == zlx.io.SCK_UNCACHED:
                 text += ' '.join(('??' for i in range(blk.size)))
-                cstrip = '?' * blk.size
+                cstrip += '?' * blk.size
             elif blk.kind == zlx.io.SCK_CACHED:
                 text += ' '.join(('{:02X}'.format(b) for b in blk.data))
                 cstrip = ''.join((chr(b) if b >= 0x20 and b <= 0x7E else '.' for b in blk.data))
             o += blk.get_size()
-            text += '  '
-        text += cstrip
+            text += ' '
+        text += ' ' + cstrip
         text = text.ljust(self.width)
         self.write(row, 0, 'default', text, clip_col = col, clip_width = width)
 
@@ -174,5 +174,7 @@ class editor (tui.application):
     def handle_char (self, msg):
         if msg.ch in ('q', '\x1B'): raise tui.app_quit(0)
         elif msg.ch in ('j',): self.act('vmove', 1)
+        elif msg.ch in ('\x06',): self.act('vmove', self.height - 2)
+        elif msg.ch in ('\x02',): self.act('vmove', -(self.height - 2))
         elif msg.ch in ('k',): self.act('vmove', -1)
 
