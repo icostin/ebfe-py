@@ -118,8 +118,19 @@ class strip (zlx.record.Record):
     '''
 strip = zlx.record.make('tui.strip', 'text style_name col')
 
+#* compute_text_width *******************************************************
 def compute_text_width (text):
     return len(text)
+
+#* compute_index_of_column **************************************************
+def compute_index_of_column (text, column):
+    '''
+    Computes the index in the text corresponding to given column, assuming
+    index 0 corresponds to column 0.
+    This should take into account the width of unicode chars displayed.
+    Returns None if the text does not reach that column.
+    '''
+    return column
 
 #* window *******************************************************************
 class window (object):
@@ -147,7 +158,7 @@ class window (object):
         '''
         self.updates = {}
 
-    def write (self, row, col, style_name, text):
+    def write_ (self, row, col, style_name, text):
         '''
         Adds the given text in the right place in the updates field.
         No need to overload this.
@@ -156,6 +167,25 @@ class window (object):
             self.updates[row] = []
         row_strips = self.updates[row]
         row_strips.append(strip(text, style_name, col))
+        pass
+
+    def write (self, row, col, style_name, text, clip_col = 0, clip_width = None):
+        '''
+        Adds the given text taking into account the given clipping coords.
+        No need to overload this.
+        '''
+        if col < clip_col:
+            i = compute_index_of_column(text, clip_col - col)
+            if i is None: return
+            col = clip_col
+            text = text[i:]
+        clip_end_col = clip_col + clip_width if clip_width is not None else self.width
+        if clip_end_col > self.width: clip_end_col = self.width
+        i = compute_index_of_column(text, clip_end_col - col)
+        if i is not None: text = text[:i]
+        self.write_(row, col, style_name, text)
+
+    def put (self, row, col, styled_text, clip_col = 0, clip_width = None):
         pass
 
     def integrate_updates (self, row_delta, col_delta, updates):

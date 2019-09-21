@@ -4,11 +4,13 @@ import io
 
 # custom external module imports
 import zlx.io
-from zlx.io import dmsg
 
 # internal module imports
 import ebfe.tui as tui
 
+dlog = open('/tmp/ebfe.log', 'w')
+def dmsg (f, *a, **b):
+    dlog.write((f + '\n').format(*a, **b))
 
 #* main *********************************************************************
 def main (tui_driver, cli):
@@ -49,7 +51,9 @@ class title_bar (tui.window):
 
     def handle_timeout (self, msg):
         self.tick += 1
-        self.refresh(start_row = 0, height = 1)
+        #self.refresh(start_row = 0, height = 1)
+        self.refresh(start_row = 0, start_col = 1, height = 1, width = 1)
+        self.refresh(start_row = 0, height = 1, start_col = self.width // 2)
 
 #* stream_edit_window *******************************************************
 class stream_edit_window (tui.window):
@@ -57,16 +61,48 @@ class stream_edit_window (tui.window):
     This is the window class for stream/file editing.
     '''
 
-    def __init__ (win, stream_cache, stream_uri):
-        tui.window.__init__(win)
-        win.stream_uri = stream_uri
-        win.stream_cache = stream_cache
+    def __init__ (self, stream_cache, stream_uri):
+        tui.window.__init__(self)
+        self.stream_uri = stream_uri
+        self.stream_cache = stream_cache
+        self.stream_offset = 0
+        self.offset_format = '{:+08X}: '
+        self.items_per_line = 16
 
     def refresh_strip (self, row, col, width):
-        if row == 0:
-            self.write(0, col, 'default', 'x' * width)
-        else:
-            tui.window.refresh_strip(self, row, col, width)
+        row_offset = self.stream_offset + row * self.items_per_line
+        text = self.offset_format.format(row_offset)
+        o = 0
+        blocks = self.stream_cache.get(row_offset, self.items_per_line)
+        dmsg('got {!r}', blocks)
+        cstrip = ''
+        for blk in blocks:
+            if blk.kind == zlx.io.SCK_HOLE:
+                if blk.size == 0:
+                    x = '  '
+                    c = ' '
+                    n = self.items_per_line - o
+                else: 
+                    x = '--'
+                    c = ' '
+                    n = blk.size
+                text += ' '.join((x for i in range(n)))
+                cstrip += c * range(n)
+            elif blk.kind == zlx.io.SCK_UNCACHED:
+                text += ' '.join(('??' for i in range(blk.size)))
+                cstrip = '?' * blk.size
+            elif blk.kind == zlx.io.SCK_CACHED:
+                text += ' '.join(('{:02X}'.format(b) for b in blk.data))
+                cstrip = ''.join((chr(b) if b >= 0x20 and b <= 0x7E else '.' for b in blk.data))
+            o += blk.get_size()
+            text += '  '
+        text += cstrip
+        text = text.ljust(self.width)
+        self.write(row, 0, 'default', text, clip_col = col, clip_width = width)
+
+    def vmove (self, count = 1):
+        self.stream_offset += self.items_per_line * count
+        self.refresh()
 
 
 #* editor *******************************************************************
@@ -79,6 +115,7 @@ class editor (tui.application):
         tui.application.__init__(self)
         self.tick = 0
         self.title_bar = title_bar('ebfe - Exuberant Binary File Editor')
+        self.mode = 'normal' # like vim normal mode
 
         self.stream_windows = []
         if not cli.file:
@@ -86,7 +123,8 @@ class editor (tui.application):
 
         for uri in cli.file:
             f = open_file_from_uri(uri)
-            sc = zlx.io.stream_cache(f)
+            sc = zlx.io.stream_cache(f, align = 4)
+            sc.load(0, sc.blocks[len(sc.blocks) - 1].offset // 2)
             sew = stream_edit_window(
                     stream_cache = sc,
                     stream_uri = uri)
@@ -118,7 +156,7 @@ class editor (tui.application):
             self.title_bar.refresh_strip(0, col, width)
             self.integrate_updates(0, 0, self.title_bar.fetch_updates())
             return
-        elif row >= 1 and row <= self.height - 1 and self.active_stream_win:
+        elif row >= 1 and row < self.height - 1 and self.active_stream_win:
             self.active_stream_win.refresh_strip(row - 1, col, width)
             self.integrate_updates(1, 0, self.active_stream_win.fetch_updates())
         else:
@@ -128,7 +166,13 @@ class editor (tui.application):
         self.title_bar.handle_timeout(msg)
         self.integrate_updates(0, 0, self.title_bar.fetch_updates())
 
+    def act (self, func, *l, **kw):
+        if self.active_stream_win:
+            getattr(self.active_stream_win, func)(*l, **kw)
+            self.integrate_updates(1, 0, self.active_stream_win.fetch_updates())
+
     def handle_char (self, msg):
         if msg.ch in ('q', '\x1B'): raise tui.app_quit(0)
-
+        elif msg.ch in ('j',): self.act('vmove', 1)
+        elif msg.ch in ('k',): self.act('vmove', -1)
 

@@ -23,6 +23,8 @@ class driver (tui.driver):
             return tui.resize_message(yx[1], yx[0])
 
         else:
+            if key == 0x0C:
+                self.scr.clear()
             return tui.message(name = 'char', ch = chr(key))
 
     def get_screen_size (self):
