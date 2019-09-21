@@ -25,7 +25,9 @@ def open_file_from_uri (uri):
     if scheme == 'file':
         return open(res, 'rb')
     elif scheme == 'mem':
-        return io.BytesIO()
+        f = io.BytesIO()
+        f.write(b'All your bytes are belong to Us:' + bytes(i for i in range(256)))
+        return f
 
 #* title_bar ****************************************************************
 class title_bar (tui.window):
