@@ -12,6 +12,7 @@ class driver (tui.driver):
         #self.scr.notimeout(False)
         #self.scr.timeout(1000)
         self.scr.nodelay(True)
+        curses.curs_set(0)
         self.pair_seed = 1
 
     # Returns a tuple containing the state of ALT/escape key and the translated input
@@ -27,6 +28,10 @@ class driver (tui.driver):
             if c == 'KEY_RESIZE':
                 yx = self.scr.getmaxyx()
                 return tui.resize_message(yx[1], yx[0])
+            
+            elif c == '\x0c':
+                self.scr.clear()
+                return tui.message(name = 'keystate', ch = (esc, c))
 
             # is it ESC or ALT+KEY ?
             elif c == '\x1b':
@@ -41,21 +46,6 @@ class driver (tui.driver):
                 return tui.message(name = 'keystate', ch = (False, 'ESC'))
             else:
                 return tui.message(name = 'timeout')
-
-    def get_old_message (self):
-        key = self.scr.getch()
-        if key == -1:
-            #time.sleep(1 / 10)
-            return tui.message(name = 'timeout')
-
-        elif key == curses.KEY_RESIZE:
-            yx = self.scr.getmaxyx()
-            return tui.resize_message(yx[1], yx[0])
-
-        else:
-            if key == 0x0C:
-                self.scr.clear()
-            return tui.message(name = 'char', ch = chr(key))
 
     def get_screen_size (self):
         yx = self.scr.getmaxyx()

@@ -171,13 +171,6 @@ class editor (tui.application):
             getattr(self.active_stream_win, func)(*l, **kw)
             self.integrate_updates(1, 0, self.active_stream_win.fetch_updates())
 
-    def handle_char (self, msg):
-        if msg.ch in ('q', '\x1B'): raise tui.app_quit(0)
-        elif msg.ch in ('j',): self.act('vmove', 1)
-        elif msg.ch in ('\x06',): self.act('vmove', self.height - 2)
-        elif msg.ch in ('\x02',): self.act('vmove', -(self.height - 2))
-        elif msg.ch in ('k',): self.act('vmove', -1)
-
     def handle_keystate (self, msg):
         if msg.ch[1] in ('q', 'Q', 'ESC'): raise tui.app_quit(0)
         elif msg.ch[1] in ('j', 'J'): self.act('vmove', 1)
