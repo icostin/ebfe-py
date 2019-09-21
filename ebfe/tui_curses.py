@@ -23,10 +23,16 @@ class driver (tui.driver):
         try:
             #c = self.scr.getkey()
             c = self.scr.getkey()
+
+            if c == 'KEY_RESIZE':
+                yx = self.scr.getmaxyx()
+                return tui.resize_message(yx[1], yx[0])
+
             # is it ESC or ALT+KEY ?
-            if c == '\x1b':
+            elif c == '\x1b':
                 esc = True
                 c = self.scr.getkey()
+            
             return tui.message(name = 'keystate', ch = (esc, c))
 
         except curses.error:

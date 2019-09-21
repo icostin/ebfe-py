@@ -184,4 +184,5 @@ class editor (tui.application):
         elif msg.ch[1] in ('k', 'K'): self.act('vmove', -1)
         elif msg.ch[1] in ('\x06',): self.act('vmove', self.height - 2)
         elif msg.ch[1] in ('\x02',): self.act('vmove', -(self.height - 2))
-
+        else:
+            dmsg("Unknown key: {}", msg.ch)
