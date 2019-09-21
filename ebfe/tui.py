@@ -11,6 +11,27 @@ class app_quit (error):
         self.ret_code = ret_code
     pass
 
+# attributes to be used in style (:-D all puns intended)
+A_NORMAL = 0
+A_BOLD = 1
+A_ITALIC = 2
+A_ALT_CHARSET = 4
+
+STYLE_PARSE_MAP = dict(
+        normal = A_NORMAL,
+        bold = A_BOLD,
+        italic = A_ITALIC,
+        altchar = A_ALT_CHARSET,
+        black = 0,
+        red = 1,
+        green = 2,
+        yellow = 3,
+        blue = 4,
+        magenta = 5,
+        cyan = 6,
+        grey = 7,
+    )
+
 screen_size = namedtuple('screen_size', 'width height'.split())
 
 style_caps = namedtuple('style_caps', 'attr fg_count bg_count fg_default bg_default'.split())
@@ -97,12 +118,6 @@ class driver (object):
 
 
 
-# attributes to be used in style (:-D all puns intended)
-A_NORMAL = 0
-A_BOLD = 1
-A_ITALIC = 2
-A_ALT_CHARSET = 4
-
 #* style ********************************************************************
 class style (zlx.record.Record):
     '''
@@ -132,6 +147,55 @@ def compute_index_of_column (text, column):
     '''
     return column
 
+STYLE_BEGIN = '\a'
+STYLE_END = '\b'
+
+#* styled_text_chunks *******************************************************
+def styled_text_chunks (styled_text, initial_style = 'default'):
+    for x in ''.join((initial_style, STYLE_END, styled_text)).split(STYLE_BEGIN):
+        style, text = x.split(STYLE_END, 1)
+        if not text: continue
+        yield (style, text)
+
+#* strip_styles_from_styled_text ********************************************
+def strip_styles_from_styled_text (styled_text):
+    return ''.join((x.split(STYLE_END, 1)[1] for x in (STYLE_END + text).split(STYLE_BEGIN)))
+
+#* get_char_width ***********************************************************
+def get_char_width (ch):
+    return 1
+
+#* compute_styled_text_index_of_column **************************************
+def compute_styled_text_index_of_column (styled_text, column):
+    '''
+    Computes the index in the text corresponding to given column, assuming
+    index 0 corresponds to column 0.
+    This should take into account the width of unicode chars displayed.
+    Returns a pair (index, column). column may be smaller than column if
+    the char at index is double-width and would jump over requested column.
+    If the string is not as wide to reach the column the function returns
+    (None, text_width)
+    '''
+    c = 0
+    text_mode = True
+    for i in range(len(styled_text)):
+        if text_mode:
+            ch = styled_text[i]
+            if ch == STYLE_BEGIN:
+                text_mode = False
+                continue
+            w = get_char_width(ch)
+            if c + w > column: return i, c
+            c += w
+        else:
+            if styled_text[i] == STYLE_END:
+                text_mode = True
+    return None, c
+
+#* compute_styled_text_width ************************************************
+def compute_styled_text_width (styled_text):
+    return compute_styled_text_index_of_column(styled_text, 9999)[1]
+
 #* window *******************************************************************
 class window (object):
     '''
@@ -144,11 +208,13 @@ class window (object):
     - resize() - if the window has children or custom fields need adjusting
     '''
 
-    def __init__ (self, width = 0, height = 0, default_style_name = 'default'):
+    def __init__ (self, width = 0, height = 0, styles = 'default'):
         object.__init__(self)
         self.width = width
         self.height = height
-        self.default_style_name = default_style_name
+        self.style_names = styles.split()
+        self.default_style_name = self.style_names[0]
+        self.style_markers = { s: '\a{}\b'.format(s) for s in self.style_names }
         self.wipe_updates()
 
     def wipe_updates (self):
@@ -185,7 +251,16 @@ class window (object):
         if i is not None: text = text[:i]
         self.write_(row, col, style_name, text)
 
+    def sfmt (self, fmt, *l, **kw):
+        '''
+        Format text with styles.
+        '''
+        return fmt.format(*l, **kw, **self.style_markers)
+
     def put (self, row, col, styled_text, clip_col = 0, clip_width = None):
+        for style, text in styled_text_chunks(styled_text, self.default_style_name):
+            self.write(row, col, style, text, clip_col, clip_width)
+            col += compute_text_width(text)
         pass
 
     def integrate_updates (self, row_delta, col_delta, updates):

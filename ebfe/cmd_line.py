@@ -3,12 +3,17 @@ import argparse
 import ebfe.app
 
 def cmd_test (cli):
-    if not cli.file:
-        cli.ap.print_help()
-        return
+    #if not cli.file:
+    #    cli.ap.print_help()
+    #    return
     #print('editing files: {!r}'.format(cli.file))
-    import ebfe.old_tui
-    ebfe.old_tui.main(cli)
+    import ebfe.tui
+    x = []
+    for s, t in ebfe.tui.styled_text_chunks('tra\abold\bla\aitalic\bla!\ameh\b'):
+        x.append((s, t))
+    print(repr(x))
+    #import ebfe.old_tui
+    #ebfe.old_tui.main(cli)
     return
 
 def boot_driver_curses (cli):

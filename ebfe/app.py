@@ -35,20 +35,39 @@ class title_bar (tui.window):
     Title bar
     '''
     def __init__ (self, title = ''):
-        tui.window.__init__(self, title)
+        tui.window.__init__(self, title,
+            styles = '''
+            passive_title
+            normal_title
+            dash_title
+            time_title
+            '''
+        )
         self.title = title
         self.tick = 0
 
     def refresh_strip (self, row, col, width):
         t = str(datetime.datetime.now())
 
-        text = '[{}] {}'.format("|/-\\"[self.tick & 3], self.title)
-        if len(text) + len(t) >= self.width:
-            t = ''
-        text = text.ljust(self.width - len(t))
-        text += t
+        stext = self.sfmt('{passive_title}[{dash_title}{}{passive_title}]{normal_title} {} ', "|/-\\"[self.tick & 3], self.title)
+        #text = '[{}] {}'.format("|/-\\"[self.tick & 3], self.title)
+        #if len(text) + len(t) >= self.width: t = ''
+        stext_width = tui.compute_styled_text_width(stext)
+        #dmsg('{!r} -> width {}', stext, stext_width)
+        if stext_width + len(t) >= self.width:
+            if stext_width < self.width:
+                stext += self.sfmt('{passive_title}{}', ' ' * (self.width - stext_width))
+        else:
+            stext += self.sfmt('{passive_title}{}{time_title}{}', ' ' * (self.width - stext_width - len(t)), t)
+        #text = text.ljust(self.width - len(t))
+        #text += t
 
-        self.write(0, col, 'normal_title', text[col : col + width])
+
+        #for style, text in tui.styled_text_chunks(stext, self.default_style_name):
+        #    dmsg('chunk: style={!r} text={!r}', style, text)
+
+        self.put(0, 0, stext, clip_col = col, clip_width = width)
+        #self.put(0, col, text, [col : col + width])
         return
 
     def handle_timeout (self, msg):
@@ -76,7 +95,7 @@ class stream_edit_window (tui.window):
         text = self.offset_format.format(row_offset)
         o = 0
         blocks = self.stream_cache.get(row_offset, self.items_per_line)
-        dmsg('got {!r}', blocks)
+        #dmsg('got {!r}', blocks)
         cstrip = ''
         for blk in blocks:
             if blk.kind == zlx.io.SCK_HOLE:
@@ -143,6 +162,9 @@ class editor (tui.application):
                 fg = style_caps.fg_default,
                 bg = style_caps.bg_default)
         sm['normal_title'] = tui.style(attr = tui.A_NORMAL, fg = 1, bg = 7)
+        sm['passive_title'] = tui.style(attr = tui.A_NORMAL, fg = 0, bg = 7)
+        sm['dash_title'] = tui.style(attr = tui.A_BOLD, fg = 2, bg = 7)
+        sm['time_title'] = tui.style(attr = tui.A_BOLD, fg = 4, bg = 7)
         return sm
 
     def resize (self, width, height):
