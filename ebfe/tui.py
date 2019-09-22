@@ -1,5 +1,7 @@
-import zlx.record
+import functools
 from collections import namedtuple
+
+import zlx.record
 from zlx.io import dmsg
 
 class error (RuntimeError):
@@ -130,6 +132,39 @@ class strip (zlx.record.Record):
     '''
     A strip is a portion of a one line of text with its style.
     '''
+
+#* make_style ***************************************************************
+def make_style (caps, 
+        fg = None, bg = None, attr = A_NORMAL, 
+        fg256 = None, bg256 = None, attr256 = None):
+    '''
+    creates a style object that fits within the given caps
+    '''
+    if caps.fg_count == 256 and fg256 is not None: fg = fg256
+    if caps.bg_count == 256 and bg256 is not None: bg = bg256
+    if caps.bg_count == 256 and attr256 is not None: attr = attr256
+    if fg is None or fg >= caps.fg_count: fg = caps.fg_default
+    if bg is None or bg >= caps.bg_count: bg = caps.bg_default
+    attr &= caps.attr
+    return style(attr, fg, bg)
+
+#* parse_styles *************************************************************
+def parse_styles (caps, src):
+    m = {}
+    for line in src.splitlines():
+        if '#' in line: line = line[0:line.index('#')]
+        line = line.strip()
+        if line == '': continue
+        name, *attrs = line.split()
+        d = {}
+        for a in attrs:
+            k, v = a.split('=', 1)
+            vparts = (STYLE_PARSE_MAP[x] if x in STYLE_PARSE_MAP else int(x) for x in v.split('|'))
+            d[k] = functools.reduce(lambda a, b: a | b, vparts)
+        m[name] = make_style(caps, **d)
+    return m
+
+#* strip ********************************************************************
 strip = zlx.record.make('tui.strip', 'text style_name col')
 
 #* compute_text_width *******************************************************

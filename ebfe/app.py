@@ -186,29 +186,50 @@ class editor (tui.application):
         return
 
     def generate_style_map (self, style_caps):
-        sm = {}
-        sm['default'] = tui.style(
-                attr = tui.A_NORMAL,
-                fg = style_caps.fg_default,
-                bg = style_caps.bg_default)
-        sm['normal_title'] = tui.style(attr = tui.A_NORMAL, fg = 1, bg = 7)
-        sm['passive_title'] = tui.style(attr = tui.A_NORMAL, fg = 0, bg = 7)
-        sm['dash_title'] = tui.style(attr = tui.A_BOLD, fg = 2, bg = 7)
-        sm['time_title'] = tui.style(attr = tui.A_BOLD, fg = 4, bg = 7)
-        sm['normal_offset'] = tui.style(attr = tui.A_NORMAL, fg = 7, bg = 0)
-        sm['offset_item_sep'] = tui.style(attr = tui.A_NORMAL, fg = 6, bg = 0)
-        sm['known_item'] = tui.style(attr = tui.A_NORMAL, fg = 7, bg = 0)
-        sm['uncached_item'] = tui.style(attr = tui.A_NORMAL, fg = 4, bg = 0)
-        sm['missing_item'] = tui.style(attr = tui.A_NORMAL, fg = 8, bg = 0)
-        sm['item1_sep'] = tui.style(attr = tui.A_NORMAL, fg = 8, bg = 0)
-        sm['item2_sep'] = tui.style(attr = tui.A_NORMAL, fg = 8, bg = 0)
-        sm['item4_sep'] = tui.style(attr = tui.A_NORMAL, fg = 8, bg = 0)
-        sm['item8_sep'] = tui.style(attr = tui.A_NORMAL, fg = 8, bg = 0)
-        sm['item_char_sep'] = tui.style(attr = tui.A_NORMAL, fg = 8, bg = 0)
-        sm['normal_char'] = tui.style(attr = tui.A_NORMAL, fg = 6, bg = 0)
-        sm['altered_char'] = tui.style(attr = tui.A_NORMAL, fg = 8, bg = 0)
-        sm['uncached_char'] = tui.style(attr = tui.A_NORMAL, fg = 12, bg = 0)
-        sm['missing_char'] = tui.style(attr = tui.A_NORMAL, fg = 8, bg = 0)
+        # sm = {}
+        # sm['default'] = tui.style(
+        #         attr = tui.A_NORMAL,
+        #         fg = style_caps.fg_default,
+        #         bg = style_caps.bg_default)
+        # sm['normal_title'] = tui.style(attr = tui.A_NORMAL, fg = 1, bg = 7)
+        # sm['passive_title'] = tui.style(attr = tui.A_NORMAL, fg = 0, bg = 7)
+        # sm['dash_title'] = tui.style(attr = tui.A_BOLD, fg = 2, bg = 7)
+        # sm['time_title'] = tui.style(attr = tui.A_BOLD, fg = 4, bg = 7)
+        # sm['normal_offset'] = tui.style(attr = tui.A_NORMAL, fg = 7, bg = 0)
+        # sm['offset_item_sep'] = tui.style(attr = tui.A_NORMAL, fg = 6, bg = 0)
+        # sm['known_item'] = tui.style(attr = tui.A_NORMAL, fg = 7, bg = 0)
+        # sm['uncached_item'] = tui.style(attr = tui.A_NORMAL, fg = 4, bg = 0)
+        # sm['missing_item'] = tui.style(attr = tui.A_NORMAL, fg = 8, bg = 0)
+        # sm['item1_sep'] = tui.style(attr = tui.A_NORMAL, fg = 8, bg = 0)
+        # sm['item2_sep'] = tui.style(attr = tui.A_NORMAL, fg = 8, bg = 0)
+        # sm['item4_sep'] = tui.style(attr = tui.A_NORMAL, fg = 8, bg = 0)
+        # sm['item8_sep'] = tui.style(attr = tui.A_NORMAL, fg = 8, bg = 0)
+        # sm['item_char_sep'] = tui.style(attr = tui.A_NORMAL, fg = 8, bg = 0)
+        # sm['normal_char'] = tui.style(attr = tui.A_NORMAL, fg = 6, bg = 0)
+        # sm['altered_char'] = tui.style(attr = tui.A_NORMAL, fg = 8, bg = 0)
+        # sm['uncached_char'] = tui.style(attr = tui.A_NORMAL, fg = 12, bg = 0)
+        # sm['missing_char'] = tui.style(attr = tui.A_NORMAL, fg = 8, bg = 0)
+        sm = tui.parse_styles(style_caps, '''
+            default attr=normal fg=7 bg=0
+            normal_title attr=normal fg=1 bg=7
+            passive_title attr=normal fg=0 bg=7
+            dash_title attr=bold fg=2 bg=7
+            time_title attr=bold fg=4 bg=7
+            normal_offset attr=normal fg=7 bg=0
+            offset_item_sep attr=normal fg=6 bg=0
+            known_item attr=normal fg=7 bg=0
+            uncached_item attr=normal fg=4 bg=0
+            missing_item attr=normal fg=8 bg=0
+            item1_sep attr=normal fg=8 bg=0
+            item2_sep attr=normal fg=8 bg=0
+            item4_sep attr=normal fg=8 bg=0
+            item8_sep attr=normal fg=8 bg=0
+            item_char_sep attr=normal fg=8 bg=0
+            normal_char attr=normal fg=6 bg=0
+            altered_char attr=normal fg=8 bg=0
+            uncached_char attr=normal fg=12 bg=0
+            missing_char attr=normal fg=8 bg=0
+            ''')
         return sm
 
     def resize (self, width, height):
