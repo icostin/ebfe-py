@@ -83,16 +83,25 @@ class stream_edit_window (tui.window):
     '''
 
     def __init__ (self, stream_cache, stream_uri):
-        tui.window.__init__(self)
+        tui.window.__init__(self, styles='''
+            default
+            normal_offset offset_item_sep
+            known_item uncached_item missing_item
+            item1_sep item2_sep item4_sep item8_sep
+            item_char_sep
+            normal_char altered_char uncached_char missing_char
+        ''')
         self.stream_uri = stream_uri
         self.stream_cache = stream_cache
         self.stream_offset = 0
-        self.offset_format = '{:+08X}: '
+        #self.offset_format = '{:+08X}: '
         self.items_per_line = 16
 
     def refresh_strip (self, row, col, width):
         row_offset = self.stream_offset + row * self.items_per_line
-        text = self.offset_format.format(row_offset)
+        #text = self.offset_format.format(row_offset)
+        stext = self.sfmt('{normal_offset}{:+08X}{offset_item_sep}: ', row_offset)
+
         o = 0
         blocks = self.stream_cache.get(row_offset, self.items_per_line)
         #dmsg('got {!r}', blocks)
@@ -100,26 +109,38 @@ class stream_edit_window (tui.window):
         for blk in blocks:
             if blk.kind == zlx.io.SCK_HOLE:
                 if blk.size == 0:
-                    x = '  '
+                    x = '{missing_item}  '
                     c = ' '
+                    #x = '  '
+                    #c = ' '
                     n = self.items_per_line - o
                 else:
-                    x = '--'
+                    x = '{missing_item}--'
                     c = ' '
+                    #c = ' '
                     n = blk.size
-                text += ' '.join((x for i in range(n)))
-                cstrip += c * n
+                stext += self.sfmt('{item1_sep} '.join((x for i in range(n))))
+                #text += ' '.join((x for i in range(n)))
+                cstrip += self.sfmt('{missing_char}{}', c * n)
             elif blk.kind == zlx.io.SCK_UNCACHED:
-                text += ' '.join(('??' for i in range(blk.size)))
-                cstrip += '?' * blk.size
+                #text += ' '.join(('??' for i in range(blk.size)))
+                stext += self.sfmt('{item1_sep} '.join(('{uncached_item}??' for i in range(blk.size))))
+                cstrip += self.sfmt('{uncached_char}?' * blk.size)
             elif blk.kind == zlx.io.SCK_CACHED:
-                text += ' '.join(('{:02X}'.format(b) for b in blk.data))
-                cstrip = ''.join((chr(b) if b >= 0x20 and b <= 0x7E else '.' for b in blk.data))
+                #text += ' '.join(('{:02X}'.format(b) for b in blk.data))
+                #cstrip = ''.join((chr(b) if b >= 0x20 and b <= 0x7E else '.' for b in blk.data))
+                stext += self.sfmt('{item1_sep} ').join((self.sfmt('{known_item}{:02X}', b) for b in blk.data))
+                cstrip = ''.join((self.sfmt('{normal_char}{}', chr(b)) if b >= 0x20 and b <= 0x7E else self.sfmt('{altered_char}.') for b in blk.data))
             o += blk.get_size()
-            text += ' '
-        text += ' ' + cstrip
-        text = text.ljust(self.width)
-        self.write(row, 0, 'default', text, clip_col = col, clip_width = width)
+            #text += ' '
+            stext += self.sfmt('{item1_sep} ')
+        stext += self.sfmt('{item_char_sep} ') + cstrip
+        #text += ' ' + cstrip
+        #text = text.ljust(self.width)
+        #self.write(row, 0, 'default', text, clip_col = col, clip_width = width)
+        sw = tui.compute_styled_text_width(stext)
+        stext += self.sfmt('{default}{}', ' ' * max(0, self.width  - sw))
+        self.put(row, 0, stext, clip_col = col, clip_width = width)
 
     def vmove (self, count = 1):
         self.stream_offset += self.items_per_line * count
@@ -165,6 +186,20 @@ class editor (tui.application):
         sm['passive_title'] = tui.style(attr = tui.A_NORMAL, fg = 0, bg = 7)
         sm['dash_title'] = tui.style(attr = tui.A_BOLD, fg = 2, bg = 7)
         sm['time_title'] = tui.style(attr = tui.A_BOLD, fg = 4, bg = 7)
+        sm['normal_offset'] = tui.style(attr = tui.A_NORMAL, fg = 7, bg = 0)
+        sm['offset_item_sep'] = tui.style(attr = tui.A_NORMAL, fg = 6, bg = 0)
+        sm['known_item'] = tui.style(attr = tui.A_NORMAL, fg = 7, bg = 0)
+        sm['uncached_item'] = tui.style(attr = tui.A_NORMAL, fg = 4, bg = 0)
+        sm['missing_item'] = tui.style(attr = tui.A_NORMAL, fg = 8, bg = 0)
+        sm['item1_sep'] = tui.style(attr = tui.A_NORMAL, fg = 8, bg = 0)
+        sm['item2_sep'] = tui.style(attr = tui.A_NORMAL, fg = 8, bg = 0)
+        sm['item4_sep'] = tui.style(attr = tui.A_NORMAL, fg = 8, bg = 0)
+        sm['item8_sep'] = tui.style(attr = tui.A_NORMAL, fg = 8, bg = 0)
+        sm['item_char_sep'] = tui.style(attr = tui.A_NORMAL, fg = 8, bg = 0)
+        sm['normal_char'] = tui.style(attr = tui.A_NORMAL, fg = 6, bg = 0)
+        sm['altered_char'] = tui.style(attr = tui.A_NORMAL, fg = 8, bg = 0)
+        sm['uncached_char'] = tui.style(attr = tui.A_NORMAL, fg = 12, bg = 0)
+        sm['missing_char'] = tui.style(attr = tui.A_NORMAL, fg = 8, bg = 0)
         return sm
 
     def resize (self, width, height):
@@ -199,7 +234,9 @@ class editor (tui.application):
         if msg.ch[1] in ('q', 'Q', 'ESC'): raise tui.app_quit(0)
         elif msg.ch[1] in ('j', 'J'): self.act('vmove', 1)
         elif msg.ch[1] in ('k', 'K'): self.act('vmove', -1)
-        elif msg.ch[1] in ('\x06',): self.act('vmove', self.height - 2)
-        elif msg.ch[1] in ('\x02',): self.act('vmove', -(self.height - 2))
+        elif msg.ch[1] in ('\x06',): self.act('vmove', self.height - 2) # Ctrl-F
+        elif msg.ch[1] in ('\x02',): self.act('vmove', -(self.height - 2)) # Ctrl-B
+        elif msg.ch[1] in ('\x04',): self.act('vmove', self.height // 3) # Ctrl-D
+        elif msg.ch[1] in ('\x15',): self.act('vmove', -(self.height // 3)) # Ctrl-U
         else:
             dmsg("Unknown key: {}", msg.ch)
