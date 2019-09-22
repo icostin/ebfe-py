@@ -1,6 +1,7 @@
 # standard module imports
 import datetime
 import io
+import ebfe
 
 # custom external module imports
 import zlx.io
@@ -49,7 +50,7 @@ class title_bar (tui.window):
     def refresh_strip (self, row, col, width):
         t = str(datetime.datetime.now())
 
-        stext = self.sfmt('{passive_title}[{dash_title}{}{passive_title}]{normal_title} {} ', "|/-\\"[self.tick & 3], self.title)
+        stext = self.sfmt('{passive_title}[{dash_title}{}{passive_title}]{normal_title} {} - ver {} ', "|/-\\"[self.tick & 3], self.title, ebfe.VER_STR)
         #text = '[{}] {}'.format("|/-\\"[self.tick & 3], self.title)
         #if len(text) + len(t) >= self.width: t = ''
         stext_width = tui.compute_styled_text_width(stext)

@@ -1,5 +1,8 @@
 .PHONY: clean test publish package
 
+inc-build:
+	zlx inc-build ebfe/__init__.py
+
 test:
 	PYTHONPATH=. python3 ebfe/cmd_line.py -t
 
