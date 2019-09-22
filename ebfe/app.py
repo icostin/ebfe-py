@@ -146,6 +146,15 @@ class stream_edit_window (tui.window):
         self.stream_offset += self.items_per_line * count
         self.refresh()
 
+    def shift_offset (self, disp):
+        self.stream_offset += disp
+        self.refresh()
+
+    def adjust_items_per_line (self, disp):
+        self.items_per_line += disp
+        if self.items_per_line < 1: self.items_per_line = 1
+        self.refresh()
+
 
 #* editor *******************************************************************
 class editor (tui.application):
@@ -234,8 +243,12 @@ class editor (tui.application):
         if msg.ch[1] in ('q', 'Q', 'ESC'): raise tui.app_quit(0)
         elif msg.ch[1] in ('j', 'J'): self.act('vmove', 1)
         elif msg.ch[1] in ('k', 'K'): self.act('vmove', -1)
-        elif msg.ch[1] in ('\x06',): self.act('vmove', self.height - 2) # Ctrl-F
-        elif msg.ch[1] in ('\x02',): self.act('vmove', -(self.height - 2)) # Ctrl-B
+        elif msg.ch[1] in ('<',): self.act('shift_offset', -1)
+        elif msg.ch[1] in ('>',): self.act('shift_offset', +1)
+        elif msg.ch[1] in ('-',): self.act('adjust_items_per_line', -1)
+        elif msg.ch[1] in ('+',): self.act('adjust_items_per_line', +1)
+        elif msg.ch[1] in ('\x06',): self.act('vmove', self.height - 3) # Ctrl-F
+        elif msg.ch[1] in ('\x02',): self.act('vmove', -(self.height - 3)) # Ctrl-B
         elif msg.ch[1] in ('\x04',): self.act('vmove', self.height // 3) # Ctrl-D
         elif msg.ch[1] in ('\x15',): self.act('vmove', -(self.height // 3)) # Ctrl-U
         else:
