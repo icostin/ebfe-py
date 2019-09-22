@@ -125,7 +125,6 @@ class style (zlx.record.Record):
     Instantiate with: style(fg, bg, attr)
     '''
     __slots__ = 'attr fg bg'.split()
-    pass
 
 class strip (zlx.record.Record):
     '''
