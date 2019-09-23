@@ -27,6 +27,9 @@ else:
     cfg['main settings'] = {
             'test_option' : 1337,
             }
+    cfg['window: hex edit'] = {
+            'items_per_line' : 8,
+            }
     with open(cfg_file, 'w') as cfg_file_handle:
         cfg.write(cfg_file_handle)
 
@@ -116,6 +119,19 @@ class stream_edit_window (tui.window):
         self.stream_offset = 0
         #self.offset_format = '{:+08X}: '
         self.items_per_line = 16
+        
+        # If settings exist then override the defaults
+        if 'window: hex edit' in cfg:
+            # this setting should not exist
+            if 'fantasy_setting_here' in cfg['window: hex edit']:
+                pass
+            if 'items_per_line' in cfg['window: hex edit']:
+                # settings are strings so they need to be converted
+                try:
+                    self.items_per_line = int(cfg['window: hex edit']['items_per_line'])
+                except ValueError:
+                    # in case the value cannot be converted to an int an exception is triggered
+                    pass
 
     def refresh_strip (self, row, col, width):
         row_offset = self.stream_offset + row * self.items_per_line
