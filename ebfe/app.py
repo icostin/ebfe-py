@@ -1,17 +1,36 @@
 # standard module imports
 import datetime
 import io
+import os
 import ebfe
 
 # custom external module imports
 import zlx.io
+import configparser
 
 # internal module imports
 import ebfe.tui as tui
 
+# Debugging in a temporary file
 dlog = open('/tmp/ebfe.log', 'w')
 def dmsg (f, *a, **b):
     dlog.write((f + '\n').format(*a, **b))
+
+#* Parsing a config file ****************************************************
+cfg = configparser.ConfigParser()
+cfg_file = os.path.expanduser('~/.ebfe.ini')
+# if config file exists it is parsed
+if os.path.isfile(cfg_file):
+    cfg.read(cfg_file)
+# if not, it's created with a few default options
+else:
+    cfg['main settings'] = {
+            'test_option' : 1337,
+            }
+    with open(cfg_file, 'w') as cfg_file_handle:
+        cfg.write(cfg_file_handle)
+
+dmsg("{}, {}", cfg_file, cfg.sections())
 
 #* main *********************************************************************
 def main (tui_driver, cli):

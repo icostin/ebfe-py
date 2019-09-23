@@ -17,6 +17,7 @@ setup(name=ebfe.NAME,
       zip_safe=False,
       install_requires=[
           'zlx',
+          'configparser',
       ],
       entry_points = {
           'console_scripts': ['ebfe=ebfe.cmd_line:main'],
