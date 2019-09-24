@@ -154,6 +154,7 @@ class stream_edit_window (tui.window):
         self.stream_offset = 0
         #self.offset_format = '{:+08X}: '
         self.items_per_line = cfg.iget('window: hex edit', 'items_per_line', 16)
+        self.column_size = cfg.iget('window: hex edit', 'column_size', 4)
 
     def refresh_strip (self, row, col, width):
         row_offset = self.stream_offset + row * self.items_per_line
@@ -177,21 +178,42 @@ class stream_edit_window (tui.window):
                     c = ' '
                     #c = ' '
                     n = blk.size
-                stext += self.sfmt('{item1_sep} '.join((x for i in range(n))))
+                #stext += self.sfmt('{item1_sep} '.join((x for i in range(n))))
+                for i in range(blk.size):
+                    if i+o != 0:
+                        stext += self.sfmt('{item1_sep} ')
+                        if self.column_size != 0 and ((i+o) % self.column_size) == 0:
+                            stext += ' '
+                    stext += self.sfmt(x)
                 #text += ' '.join((x for i in range(n)))
                 cstrip += self.sfmt('{missing_char}{}', c * n)
             elif blk.kind == zlx.io.SCK_UNCACHED:
                 #text += ' '.join(('??' for i in range(blk.size)))
-                stext += self.sfmt('{item1_sep} '.join(('{uncached_item}??' for i in range(blk.size))))
+                #stext += self.sfmt('{item1_sep} '.join(('{uncached_item}??' for i in range(blk.size))))
+                for i in range(blk.size):
+                    if i+o != 0:
+                        stext += self.sfmt('{item1_sep} ')
+                        if self.column_size != 0 and ((i+o) % self.column_size) == 0:
+                            stext += ' '
+                    stext += self.sfmt('{uncached_item}??')
+
                 cstrip += self.sfmt('{uncached_char}?' * blk.size)
             elif blk.kind == zlx.io.SCK_CACHED:
                 #text += ' '.join(('{:02X}'.format(b) for b in blk.data))
                 #cstrip = ''.join((chr(b) if b >= 0x20 and b <= 0x7E else '.' for b in blk.data))
-                stext += self.sfmt('{item1_sep} ').join((self.sfmt('{known_item}{:02X}', b) for b in blk.data))
+                #stext += self.sfmt('{item1_sep} ').join((self.sfmt('{known_item}{:02X}', b) for b in blk.data))
+                i = 0
+                for b in blk.data:
+                    if i+o != 0:
+                        stext += self.sfmt('{item1_sep} ')
+                        if self.column_size != 0 and ((i+o) % self.column_size) == 0:
+                            stext += ' '
+                    stext += self.sfmt('{known_item}{:02X}', b)
+                    i += 1 
                 cstrip = ''.join((self.sfmt('{normal_char}{}', chr(b)) if b >= 0x20 and b <= 0x7E else self.sfmt('{altered_char}.') for b in blk.data))
             o += blk.get_size()
             #text += ' '
-            stext += self.sfmt('{item1_sep} ')
+            #stext += self.sfmt('{item1_sep} ')
         stext += self.sfmt('{item_char_sep} ') + cstrip
         #text += ' ' + cstrip
         #text = text.ljust(self.width)
