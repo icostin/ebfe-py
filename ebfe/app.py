@@ -53,8 +53,9 @@ class settings_manager ():
         if section in self.cfg:
             if item in self.cfg[section]:
                 return self.cfg[section][item]
-        # if value could not be found we set the default one
-        self.set(section, item, default)
+        #if value could not be found we set the default one
+        #decided not to do it because we are already setting a local default
+        #self.set(section, item, default)
         return default
 
     def set (self, section, item, value):
