@@ -64,18 +64,22 @@ class settings_manager ():
         self.cfg.set(section, item, str(value))
         self.save()
 
+    # gets the value and converts it to an int
     def iget (self, section, item, default):
         v = self.get(section, item, default)
         try:
             return int(v)
         except ValueError:
+            dmsg('Settings [{}]: item [{}] value not int', section, item)
             return default
 
+    # gets the value and converts it to a float
     def fget (self, section, item, default):
         v = self.get(section, item, default)
         try:
             return float(v)
         except ValueError:
+            dmsg('Settings [{}]: item [{}] value not float', section, item)
             return default
         
     def save (self):
