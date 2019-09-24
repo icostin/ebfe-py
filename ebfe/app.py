@@ -16,25 +16,6 @@ dlog = open('/tmp/ebfe.log', 'w')
 def dmsg (f, *a, **b):
     dlog.write((f + '\n').format(*a, **b))
 
-#* Parsing a config file ****************************************************
-cfg = configparser.ConfigParser()
-cfg_file = os.path.expanduser('~/.ebfe.ini')
-# if config file exists it is parsed
-if os.path.isfile(cfg_file):
-    cfg.read(cfg_file)
-# if not, it's created with a few default options
-else:
-    cfg['main settings'] = {
-            'test_option' : 1337,
-            }
-    cfg['window: hex edit'] = {
-            'items_per_line' : 8,
-            }
-    with open(cfg_file, 'w') as cfg_file_handle:
-        cfg.write(cfg_file_handle)
-
-dmsg("{}, {}", cfg_file, cfg.sections())
-
 #* main *********************************************************************
 def main (tui_driver, cli):
     msg = tui_driver.get_message()
@@ -51,6 +32,54 @@ def open_file_from_uri (uri):
         f = io.BytesIO()
         f.write(b'All your bytes are belong to Us:' + bytes(i for i in range(256)))
         return f
+
+#* config class *************************************************************
+class settings_manager ():
+
+    def __init__ (self, cfg_file):
+        self.cfg_file = cfg_file
+        self.cfg = configparser.ConfigParser()
+        #cfg_file = os.path.expanduser(cfg_file)
+        # if config file exists it is parsed
+        if os.path.isfile(cfg_file):
+            self.cfg.read(cfg_file)
+        # if not, it's created with the sections
+        else:
+            self.cfg['main settings'] = {}
+            self.cfg['window: hex edit'] = {}
+            self.save()
+
+    def get (self, section, item, default):
+        if section in self.cfg:
+            if item in self.cfg[section]:
+                return self.cfg[section][item]
+        # if value could not be found we set the default one
+        self.set(section, item, default)
+        return default
+
+    def set (self, section, item, value):
+        if section not in self.cfg:
+            self.cfg[section] = {}
+        self.cfg.set(section, item, str(value))
+        self.save()
+
+    def iget (self, section, item, default):
+        v = self.get(section, item, default)
+        try:
+            return int(v)
+        except ValueError:
+            return default
+
+    def fget (self, section, item, default):
+        v = self.get(section, item, default)
+        try:
+            return float(v)
+        except ValueError:
+            return default
+        
+    def save (self):
+        with open(self.cfg_file, 'w') as cfg_file_handle:
+            self.cfg.write(cfg_file_handle)
 
 #* title_bar ****************************************************************
 class title_bar (tui.window):
@@ -114,24 +143,12 @@ class stream_edit_window (tui.window):
             item_char_sep
             normal_char altered_char uncached_char missing_char
         ''')
+        cfg = settings_manager(os.path.expanduser('~/.ebfe.ini'))
         self.stream_uri = stream_uri
         self.stream_cache = stream_cache
         self.stream_offset = 0
         #self.offset_format = '{:+08X}: '
-        self.items_per_line = 16
-        
-        # If settings exist then override the defaults
-        if 'window: hex edit' in cfg:
-            # this setting should not exist
-            if 'fantasy_setting_here' in cfg['window: hex edit']:
-                pass
-            if 'items_per_line' in cfg['window: hex edit']:
-                # settings are strings so they need to be converted
-                try:
-                    self.items_per_line = int(cfg['window: hex edit']['items_per_line'])
-                except ValueError:
-                    # in case the value cannot be converted to an int an exception is triggered
-                    pass
+        self.items_per_line = cfg.iget('window: hex edit', 'items_per_line', 16)
 
     def refresh_strip (self, row, col, width):
         row_offset = self.stream_offset + row * self.items_per_line
