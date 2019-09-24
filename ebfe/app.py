@@ -51,12 +51,7 @@ class settings_manager ():
 
     def get (self, section, item, default):
         if section in self.cfg:
-            if item in self.cfg[section]:
-                return self.cfg[section][item]
-        #if value could not be found we set the default one
-        #decided not to do it because we are already setting a local default
-        #self.set(section, item, default)
-        return default
+            return self.cfg[section].get(item, fallback=default)
 
     def set (self, section, item, value):
         if section not in self.cfg:
@@ -66,21 +61,18 @@ class settings_manager ():
 
     # gets the value and converts it to an int
     def iget (self, section, item, default):
-        v = self.get(section, item, default)
-        try:
-            return int(v)
-        except ValueError:
-            dmsg('Settings [{}]: item [{}] value not int', section, item)
-            return default
+        if section in self.cfg:
+            return self.cfg[section].getint(item, fallback=default)
 
     # gets the value and converts it to a float
     def fget (self, section, item, default):
-        v = self.get(section, item, default)
-        try:
-            return float(v)
-        except ValueError:
-            dmsg('Settings [{}]: item [{}] value not float', section, item)
-            return default
+        if section in self.cfg:
+            return self.cfg[section].getfloat(item, fallback=default)
+
+    # gets the value and converts it to a bool
+    def bget (self, section, item, default):
+        if section in self.cfg:
+            return self.cfg[section].getboolean(item, fallback=default)
         
     def save (self):
         with open(self.cfg_file, 'w') as cfg_file_handle:
