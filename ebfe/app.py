@@ -73,7 +73,7 @@ class settings_manager ():
     def bget (self, section, item, default):
         if section in self.cfg:
             return self.cfg[section].getboolean(item, fallback=default)
-        
+
     def save (self):
         with open(self.cfg_file, 'w') as cfg_file_handle:
             self.cfg.write(cfg_file_handle)
@@ -157,6 +157,7 @@ class stream_edit_window (tui.window):
         blocks = self.stream_cache.get(row_offset, self.items_per_line)
         #dmsg('got {!r}', blocks)
         cstrip = ''
+        last_cstrip_style = '{normal}'
         for blk in blocks:
             if blk.kind == zlx.io.SCK_HOLE:
                 if blk.size == 0:
@@ -178,7 +179,8 @@ class stream_edit_window (tui.window):
                             stext += ' '
                     stext += self.sfmt(x)
                 #text += ' '.join((x for i in range(n)))
-                cstrip += self.sfmt('{missing_char}{}', c * n)
+                last_cstrip_style = '{missing_char}'
+                cstrip += self.sfmt(last_cstrip_style + '{}', c * n)
             elif blk.kind == zlx.io.SCK_UNCACHED:
                 #text += ' '.join(('??' for i in range(blk.size)))
                 #stext += self.sfmt('{item1_sep} '.join(('{uncached_item}??' for i in range(blk.size))))
@@ -189,24 +191,36 @@ class stream_edit_window (tui.window):
                             stext += ' '
                     stext += self.sfmt('{uncached_item}??')
 
-                cstrip += self.sfmt('{uncached_char}?' * blk.size)
+                last_cstrip_style = '{uncached_char}'
+                cstrip += self.sfmt(last_cstrip_style + '?' * blk.size)
             elif blk.kind == zlx.io.SCK_CACHED:
                 #text += ' '.join(('{:02X}'.format(b) for b in blk.data))
                 #cstrip = ''.join((chr(b) if b >= 0x20 and b <= 0x7E else '.' for b in blk.data))
                 #stext += self.sfmt('{item1_sep} ').join((self.sfmt('{known_item}{:02X}', b) for b in blk.data))
                 i = 0
                 for b in blk.data:
-                    if i+o != 0:
+                    if i + o != 0:
                         stext += self.sfmt('{item1_sep} ')
                         if self.column_size != 0 and ((i+o) % self.column_size) == 0:
                             stext += ' '
                     stext += self.sfmt('{known_item}{:02X}', b)
-                    i += 1 
-                cstrip = ''.join((self.sfmt('{normal_char}{}', chr(b)) if b >= 0x20 and b <= 0x7E else self.sfmt('{altered_char}.') for b in blk.data))
+
+                    if b >= 0x20 and b <= 0x7E:
+                        cstrip_style = '{normal_char}'
+                        ch = chr(b)
+                    else:
+                        cstrip_style = '{altered_char}'
+                        ch = '.'
+                    if cstrip_style != last_cstrip_style:
+                        cstrip += self.sfmt(cstrip_style)
+                        last_cstrip_style = cstrip_style
+                    cstrip += ch
+                    i += 1
+                #cstrip += ''.join((self.sfmt('{normal_char}{}', chr(b)) if b >= 0x20 and b <= 0x7E else self.sfmt('{altered_char}.') for b in blk.data))
             o += blk.get_size()
             #text += ' '
             #stext += self.sfmt('{item1_sep} ')
-        stext += self.sfmt('{item_char_sep} ') + cstrip
+        stext += self.sfmt('{item_char_sep}  ') + cstrip
         #text += ' ' + cstrip
         #text = text.ljust(self.width)
         #self.write(row, 0, 'default', text, clip_col = col, clip_width = width)
