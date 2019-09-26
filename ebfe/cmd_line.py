@@ -42,6 +42,9 @@ def main ():
             dest = 'tui_driver', default = 'curses',
             help = 'select the TUI driver')
     ap.add_argument('file', nargs = '*', help = 'input file(s)')
+    ap.add_argument('--load-delay SECONDS', dest = 'load_delay',
+            type = int, default = 0,
+            help = 'delay loads from files (for testing)')
 
     cli = ap.parse_args(args)
     cli.ap = ap

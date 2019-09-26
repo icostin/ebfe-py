@@ -8,7 +8,7 @@ import ebfe
 
 setup(name=ebfe.NAME,
       version=ebfe.VER_STR,
-      description='Exuberant Binary Formats Editor',
+      description='EBFE Binary File Editor',
       url='https://gitlab.com/icostin/ebfe-py',
       author='Costin Ionescu, Dumitru Stama',
       author_email='costin.ionescu@gmail.com, dumitru.stama@gmail.com',

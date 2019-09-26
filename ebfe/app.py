@@ -147,6 +147,7 @@ class stream_edit_window (tui.window):
         #self.offset_format = '{:+08X}: '
         self.items_per_line = cfg.iget('window: hex edit', 'items_per_line', 16)
         self.column_size = cfg.iget('window: hex edit', 'column_size', 4)
+        self.refresh_on_next_tick = False
 
     def refresh_strip (self, row, col, width):
         row_offset = self.stream_offset + row * self.items_per_line
@@ -230,7 +231,8 @@ class stream_edit_window (tui.window):
 
     def vmove (self, count = 1):
         self.stream_offset += self.items_per_line * count
-        self.refresh()
+        self.refresh_on_next_tick = True
+        self.refresh(height = 2)
 
     def shift_offset (self, disp):
         self.stream_offset += disp
@@ -239,7 +241,14 @@ class stream_edit_window (tui.window):
     def adjust_items_per_line (self, disp):
         self.items_per_line += disp
         if self.items_per_line < 1: self.items_per_line = 1
-        self.refresh()
+        self.refresh_on_next_tick = True
+        self.refresh(height = 1)
+
+    def tick_tock (self):
+        if self.refresh_on_next_tick:
+            self.refresh_on_next_tick = False
+            self.refresh()
+
 
 
 #* editor *******************************************************************
@@ -250,6 +259,10 @@ class editor (tui.application):
 
     def __init__ (self, cli):
         tui.application.__init__(self)
+
+        self.server = zlx.io.stream_cache_server(cli.load_delay)
+
+
         self.tick = 0
         self.title_bar = title_bar('ebfe - Exuberant Binary File Editor')
         self.mode = 'normal' # like vim normal mode
@@ -262,6 +275,7 @@ class editor (tui.application):
             f = open_file_from_uri(uri)
             sc = zlx.io.stream_cache(f, align = 4)
             sc.load(0, sc.blocks[len(sc.blocks) - 1].offset // 2)
+            sc = self.server.wrap(sc, cli.load_delay)
             sew = stream_edit_window(
                     stream_cache = sc,
                     stream_uri = uri)
@@ -269,6 +283,7 @@ class editor (tui.application):
 
         self.active_stream_index = 0
         self.active_stream_win = self.stream_windows[self.active_stream_index]
+
         return
 
     def generate_style_map (self, style_caps):
@@ -339,6 +354,7 @@ class editor (tui.application):
 
     def handle_timeout (self, msg):
         self.title_bar.handle_timeout(msg)
+        self.act('tick_tock')
         self.integrate_updates(0, 0, self.title_bar.fetch_updates())
 
     def act (self, func, *l, **kw):
@@ -352,7 +368,7 @@ class editor (tui.application):
         elif msg.ch[1] in ('k', 'K'): self.act('vmove', -1)
         elif msg.ch[1] in ('<',): self.act('shift_offset', -1)
         elif msg.ch[1] in ('>',): self.act('shift_offset', +1)
-        elif msg.ch[1] in ('-',): self.act('adjust_items_per_line', -1)
+        elif msg.ch[1] in ('_',): self.act('adjust_items_per_line', -1)
         elif msg.ch[1] in ('+',): self.act('adjust_items_per_line', +1)
         elif msg.ch[1] in ('\x06',): self.act('vmove', self.height - 3) # Ctrl-F
         elif msg.ch[1] in ('\x02',): self.act('vmove', -(self.height - 3)) # Ctrl-B
