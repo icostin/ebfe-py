@@ -164,7 +164,7 @@ class stream_edit_window (tui.window):
     def __init__ (self, stream_cache, stream_uri):
         tui.window.__init__(self, styles='''
             default
-            normal_offset offset_item_sep
+            normal_offset negative_offset offset_item_sep
             known_item uncached_item missing_item
             item1_sep item2_sep item4_sep item8_sep
             item_char_sep
@@ -185,7 +185,10 @@ class stream_edit_window (tui.window):
     def refresh_strip (self, row, col, width):
         row_offset = self.stream_offset + row * self.items_per_line
         #text = self.offset_format.format(row_offset)
-        stext = self.sfmt('{normal_offset}{:+08X}{offset_item_sep}: ', row_offset)
+        if row_offset < 0:
+            stext = self.sfmt('{negative_offset}{:+08X}: ', row_offset)
+        else:
+            stext = self.sfmt('{normal_offset}{:+08X}{offset_item_sep}: ', row_offset)
 
         o = 0
         blocks = self.stream_cache.get(row_offset, self.items_per_line)
@@ -361,6 +364,7 @@ class editor (tui.application):
             dash_title attr=bold fg=2 bg=7
             time_title attr=bold fg=4 bg=7
             normal_offset attr=normal fg=7 bg=0
+            negative_offset attr=normal fg=8 bg=0
             offset_item_sep attr=normal fg=6 bg=0
             known_item attr=normal fg=7 bg=0
             uncached_item attr=normal fg=4 bg=0
