@@ -242,10 +242,12 @@ class window (object):
     - resize() - if the window has children or custom fields need adjusting
     '''
 
-    def __init__ (self, width = 0, height = 0, styles = 'default'):
+    def __init__ (self, width = 0, height = 0, styles = 'default', can_have_focus = False):
         object.__init__(self)
         self.width = width
         self.height = height
+        self.can_have_focus = can_have_focus
+        self.in_focus = False
         self.style_names = styles.split()
         self.default_style_name = self.style_names[0]
         self.style_markers = { s: '\a{}\b'.format(s) for s in self.style_names }
@@ -374,6 +376,15 @@ class window (object):
         u = self.updates
         self.wipe_updates()
         return u
+
+    def focus (self, is_it):
+        '''
+        It can switch from being in focus to out of focus
+        if the focusing mechanism is enabled (disabled by default)
+        '''
+        if self.can_have_focus:
+            self.in_focus = is_it
+
 
 class application (window):
     '''

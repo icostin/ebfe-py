@@ -147,6 +147,9 @@ class stream_edit_window (tui.window):
         #self.offset_format = '{:+08X}: '
         self.items_per_line = cfg.iget('window: hex edit', 'items_per_line', 16)
         self.column_size = cfg.iget('window: hex edit', 'column_size', 4)
+        self.fluent_scroll = cfg.bget('window: hex edit', 'fluent_scroll', True)
+        self.fluent_resize = cfg.bget('window: hex edit', 'fluent_resize', True)
+        self.reverse_offset_slide = cfg.bget('window: hex edit', 'reverse_offset_slide', True)
         self.refresh_on_next_tick = False
 
     def refresh_strip (self, row, col, width):
@@ -173,7 +176,7 @@ class stream_edit_window (tui.window):
                     #c = ' '
                     n = blk.size
                 #stext += self.sfmt('{item1_sep} '.join((x for i in range(n))))
-                for i in range(blk.size):
+                for i in range(n):
                     if i+o != 0:
                         stext += self.sfmt('{item1_sep} ')
                         if self.column_size != 0 and ((i+o) % self.column_size) == 0:
@@ -231,18 +234,27 @@ class stream_edit_window (tui.window):
 
     def vmove (self, count = 1):
         self.stream_offset += self.items_per_line * count
-        self.refresh_on_next_tick = True
-        self.refresh(height = 2)
+        if self.fluent_scroll:
+            self.refresh()
+        else:
+            self.refresh_on_next_tick = True
+            self.refresh(height = 2)
 
     def shift_offset (self, disp):
-        self.stream_offset += disp
+        if self.reverse_offset_slide:
+            self.stream_offset -= disp
+        else:
+            self.stream_offset += disp
         self.refresh()
 
     def adjust_items_per_line (self, disp):
         self.items_per_line += disp
         if self.items_per_line < 1: self.items_per_line = 1
-        self.refresh_on_next_tick = True
-        self.refresh(height = 1)
+        if self.fluent_resize:
+            self.refresh()
+        else:
+            self.refresh_on_next_tick = True
+            self.refresh(height = 1)
 
     def tick_tock (self):
         if self.refresh_on_next_tick:
