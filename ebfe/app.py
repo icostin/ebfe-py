@@ -7,14 +7,10 @@ import ebfe
 # custom external module imports
 import zlx.io
 import configparser
+from zlx.io import dmsg
 
 # internal module imports
 import ebfe.tui as tui
-
-# Debugging in a temporary file
-dlog = open('/tmp/ebfe.log', 'w')
-def dmsg (f, *a, **b):
-    dlog.write((f + '\n').format(*a, **b))
 
 #* main *********************************************************************
 def main (tui_driver, cli):
@@ -291,11 +287,10 @@ class stream_edit_window (tui.window):
             self.refresh(height = 1)
 
     def tick_tock (self):
-        if self.refresh_on_next_tick:
+        upd = self.stream_cache.reset_updated()
+        if self.refresh_on_next_tick or upd:
             self.refresh_on_next_tick = False
             self.refresh()
-
-
 
 #* editor *******************************************************************
 class editor (tui.application):
@@ -306,11 +301,10 @@ class editor (tui.application):
     def __init__ (self, cli):
         tui.application.__init__(self)
 
-        self.server = zlx.io.stream_cache_server(cli.load_delay)
-
+        self.server = zlx.io.stream_cache_server()
 
         self.tick = 0
-        self.title_bar = title_bar('ebfe - Exuberant Binary File Editor')
+        self.title_bar = title_bar('ebfe - EBFE Binary File Editor')
 
         self.job_details = processing_details()
         self.job_details.show = False
@@ -323,8 +317,8 @@ class editor (tui.application):
 
         for uri in cli.file:
             f = open_file_from_uri(uri)
-            sc = zlx.io.stream_cache(f, align = 4)
-            sc.load(0, sc.blocks[len(sc.blocks) - 1].offset // 2)
+            sc = zlx.io.stream_cache(f)
+            #sc.load(0, sc.blocks[len(sc.blocks) - 1].offset // 2)
             sc = self.server.wrap(sc, cli.load_delay)
             sew = stream_edit_window(
                     stream_cache = sc,
@@ -423,8 +417,12 @@ class editor (tui.application):
             getattr(self.active_stream_win, func)(*l, **kw)
             self.integrate_updates(1, 0, self.active_stream_win.fetch_updates())
 
+    def quit (self):
+        self.server.shutdown()
+        raise tui.app_quit(0)
+
     def handle_keystate (self, msg):
-        if msg.ch[1] in ('q', 'Q', 'ESC'): raise tui.app_quit(0)
+        if msg.ch[1] in ('q', 'Q', 'ESC'): self.quit()
         elif msg.ch[1] in ('j', 'J'): self.act('vmove', 1)
         elif msg.ch[1] in ('k', 'K'): self.act('vmove', -1)
         elif msg.ch[1] in ('<',): self.act('shift_offset', -1)
