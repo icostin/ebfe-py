@@ -143,6 +143,22 @@ class status_bar (tui.window):
         stext = self.sfmt('{default_status_bar}Test:{}', ' ' * (self.width - 5))
         self.put(0, 0, stext, clip_col = col, clip_width = width)
 
+#* status_bar ****************************************************************
+class processing_details (tui.window):
+    '''
+    Processing Job details
+    '''
+    def __init__ (self):
+        tui.window.__init__(self,
+            styles = '''
+            default_status_bar
+            '''
+        )
+
+    def refresh_strip (self, row, col, width):
+        stext = self.sfmt('{default_status_bar}Working...{}', ' ' * (self.width - 10))
+        self.put(0, 0, stext, clip_col = col, clip_width = width)
+
 #* stream_edit_window *******************************************************
 class stream_edit_window (tui.window):
     '''
@@ -295,6 +311,10 @@ class editor (tui.application):
 
         self.tick = 0
         self.title_bar = title_bar('ebfe - Exuberant Binary File Editor')
+
+        self.job_details = processing_details()
+        self.job_details.show = False
+
         self.mode = 'normal' # like vim normal mode
 
         self.stream_windows = []
@@ -315,8 +335,6 @@ class editor (tui.application):
         self.active_stream_win = self.stream_windows[self.active_stream_index]
         
         self.status_bar = status_bar('EBFE Binary File Editor')
-
-        return
 
     def generate_style_map (self, style_caps):
         # sm = {}

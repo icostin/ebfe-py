@@ -242,11 +242,12 @@ class window (object):
     - resize() - if the window has children or custom fields need adjusting
     '''
 
-    def __init__ (self, width = 0, height = 0, styles = 'default', can_have_focus = False):
+    def __init__ (self, width = 0, height = 0, styles = 'default', can_have_focus = False, show = True):
         object.__init__(self)
         self.width = width
         self.height = height
         self.can_have_focus = can_have_focus
+        self.show = show
         self.in_focus = False
         self.style_names = styles.split()
         self.default_style_name = self.style_names[0]
@@ -274,6 +275,8 @@ class window (object):
         Adds the given text taking into account the given clipping coords.
         No need to overload this.
         '''
+        if not self.show:
+            return
         if col < clip_col:
             i = compute_index_of_column(text, clip_col - col)
             if i is None: return
@@ -300,7 +303,6 @@ class window (object):
         for row in updates:
             for s in updates[row]:
                 self.write(row + row_delta, s.col + col_delta, s.style_name, s.text)
-        return
 
     def refresh_strip (self, row, col, width):
         '''
@@ -328,6 +330,9 @@ class window (object):
         redrawn.
         No need to overload this.
         '''
+        if not self.show:
+            return
+
         if start_row >= self.height or start_col >= self.width: return
 
         if height is None: height = self.height
@@ -374,12 +379,12 @@ class window (object):
         self.wipe_updates()
         return u
 
-    def focus (self, is_it):
+    def focus (self, is_it = True):
         '''
         It can switch from being in focus to out of focus
         if the focusing mechanism is enabled (disabled by default)
         '''
-        if self.can_have_focus:
+        if self.can_have_focus and self.show:
             self.in_focus = is_it
 
 
