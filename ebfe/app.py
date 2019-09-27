@@ -153,7 +153,7 @@ class processing_details (tui.window):
 
     def refresh_strip (self, row, col, width):
         stext = self.sfmt('{default_status_bar}Working...{}', ' ' * (self.width - 10))
-        self.put(0, 0, stext, clip_col = col, clip_width = width)
+        self.put(row, 0, stext, clip_col = col, clip_width = width)
 
 #* stream_edit_window *******************************************************
 class stream_edit_window (tui.window):
@@ -295,6 +295,10 @@ class stream_edit_window (tui.window):
             self.refresh_on_next_tick = False
             self.refresh()
 
+    def toggle_job_details(self):
+        self.refresh()
+
+
 #* editor *******************************************************************
 class editor (tui.application):
     '''
@@ -388,8 +392,13 @@ class editor (tui.application):
         if width > 0 and height > 0: 
             self.title_bar.resize(width, 1)
             self.status_bar.resize(width, 1)
-        if self.active_stream_win and width > 0 and height > 2:
-            self.active_stream_win.resize(width, height - 2)
+            if self.job_details.show and height >= 5:
+                self.job_details.resize(width, 3)
+            else:
+                self.job_details.resize(width, 0)
+        dmsg("self.job_details.height = {}", self.job_details.height)
+        if self.active_stream_win and width > 0 and height > (2 + self.job_details.height):
+            self.active_stream_win.resize(width, height - (2 + self.job_details.height))
         if width > 0 and height > 0: self.refresh()
 
     def refresh_strip (self, row, col, width):
@@ -397,8 +406,18 @@ class editor (tui.application):
         if row == 0:
             self.title_bar.refresh_strip(0, col, width)
             self.integrate_updates(0, 0, self.title_bar.fetch_updates())
-        # hex edit
-        elif row > 0 and row < self.height - 1 and self.active_stream_win:
+        # processing details
+        elif self.job_details.show and row > 0 and row <= self.job_details.height:
+            #dmsg("UPDATING JOB DETAILS, row: {}, col: {}, width: {}", row, col, width)
+            self.job_details.refresh_strip(row-1, col, width)
+            self.integrate_updates(1, 0, self.job_details.fetch_updates())
+        # hex edit with processing details active
+        elif self.job_details.show and row > self.job_details.height and row < self.height - 1 and self.active_stream_win:
+            dmsg("UPDATING HEX with JOB active, row: {}, col: {}, width: {}, jobH: {}", row, col, width, self.job_details.height)
+            self.active_stream_win.refresh_strip(row - (1 + self.job_details.height), col, width)
+            self.integrate_updates(self.job_details.height + 1, 0, self.active_stream_win.fetch_updates())
+        elif not self.job_details.show and row > 0 and row < self.height - 1 and self.active_stream_win:
+            dmsg("UPDATING HEX with JOB active, row: {}, col: {}, width: {}, jobH: {}", row, col, width, self.job_details.height)
             self.active_stream_win.refresh_strip(row - 1, col, width)
             self.integrate_updates(1, 0, self.active_stream_win.fetch_updates())
         # status bar
@@ -414,12 +433,14 @@ class editor (tui.application):
         #self.status_bar.handle_timeout(msg)
         self.act('tick_tock')
         self.integrate_updates(0, 0, self.title_bar.fetch_updates())
+        if self.job_details.show:
+            self.integrate_updates(1, 0, self.job_details.fetch_updates())
         self.integrate_updates(self.height-1, 0, self.status_bar.fetch_updates())
 
     def act (self, func, *l, **kw):
         if self.active_stream_win:
             getattr(self.active_stream_win, func)(*l, **kw)
-            self.integrate_updates(1, 0, self.active_stream_win.fetch_updates())
+            self.integrate_updates(1 + self.job_details.height, 0, self.active_stream_win.fetch_updates())
 
     def quit (self):
         self.server.shutdown()
@@ -433,6 +454,14 @@ class editor (tui.application):
         elif msg.ch[1] in ('>',): self.act('shift_offset', +1)
         elif msg.ch[1] in ('_',): self.act('adjust_items_per_line', -1)
         elif msg.ch[1] in ('+',): self.act('adjust_items_per_line', +1)
+        elif msg.ch[1] in ('w',):
+            if self.job_details.show:
+                self.job_details.show = False
+            else:
+                self.job_details.show = True
+            self.resize(self.width, self.height)
+            dmsg("Height job: {}, height hex: {}", self.job_details.height, self.active_stream_win.height)
+            self.act('toggle_job_details')
         elif msg.ch[1] in ('\x06',): self.act('vmove', self.height - 3) # Ctrl-F
         elif msg.ch[1] in ('\x02',): self.act('vmove', -(self.height - 3)) # Ctrl-B
         elif msg.ch[1] in ('\x04',): self.act('vmove', self.height // 3) # Ctrl-D
