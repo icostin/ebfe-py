@@ -267,9 +267,7 @@ class window (object):
         '''
         if row not in self.updates:
             self.updates[row] = []
-        row_strips = self.updates[row]
-        row_strips.append(strip(text, style_name, col))
-        pass
+        self.updates[row].append(strip(text, style_name, col))
 
     def write (self, row, col, style_name, text, clip_col = 0, clip_width = None):
         '''
@@ -297,7 +295,6 @@ class window (object):
         for style, text in styled_text_chunks(styled_text, self.default_style_name):
             self.write(row, col, style, text, clip_col, clip_width)
             col += compute_text_width(text)
-        pass
 
     def integrate_updates (self, row_delta, col_delta, updates):
         for row in updates:

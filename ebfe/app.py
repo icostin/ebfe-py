@@ -125,6 +125,24 @@ class title_bar (tui.window):
         self.refresh(start_row = 0, start_col = 1, height = 1, width = 1)
         self.refresh(start_row = 0, height = 1, start_col = self.width // 2)
 
+#* status_bar ****************************************************************
+class status_bar (tui.window):
+    '''
+    Status bar
+    '''
+    def __init__ (self, title = ''):
+        tui.window.__init__(self, title,
+            styles = '''
+            default_status_bar
+            '''
+        )
+        self.title = title
+        self.tick = 0
+
+    def refresh_strip (self, row, col, width):
+        stext = self.sfmt('{default_status_bar}Test:{}', ' ' * (self.width - 5))
+        self.put(0, 0, stext, clip_col = col, clip_width = width)
+
 #* stream_edit_window *******************************************************
 class stream_edit_window (tui.window):
     '''
@@ -295,6 +313,8 @@ class editor (tui.application):
 
         self.active_stream_index = 0
         self.active_stream_win = self.stream_windows[self.active_stream_index]
+        
+        self.status_bar = status_bar('EBFE Binary File Editor')
 
         return
 
@@ -342,32 +362,43 @@ class editor (tui.application):
             altered_char attr=normal fg=8 bg=0
             uncached_char attr=normal fg=12 bg=0
             missing_char attr=normal fg=8 bg=0
+            default_status_bar attr=normal fg=7 bg=4
             ''')
         return sm
 
     def resize (self, width, height):
         self.width = width
         self.height = height
-        if width > 0 and height > 0: self.title_bar.resize(width, 1)
+        if width > 0 and height > 0: 
+            self.title_bar.resize(width, 1)
+            self.status_bar.resize(width, 1)
         if self.active_stream_win and width > 0 and height > 2:
             self.active_stream_win.resize(width, height - 2)
         if width > 0 and height > 0: self.refresh()
 
     def refresh_strip (self, row, col, width):
+        # title bar
         if row == 0:
             self.title_bar.refresh_strip(0, col, width)
             self.integrate_updates(0, 0, self.title_bar.fetch_updates())
-            return
-        elif row >= 1 and row < self.height - 1 and self.active_stream_win:
+        # hex edit
+        elif row > 0 and row < self.height - 1 and self.active_stream_win:
             self.active_stream_win.refresh_strip(row - 1, col, width)
             self.integrate_updates(1, 0, self.active_stream_win.fetch_updates())
+        # status bar
+        elif row == self.height - 1:
+            self.status_bar.refresh_strip(0, col, width)
+            self.integrate_updates(self.height-1, 0, self.status_bar.fetch_updates())
+        # anything else ?!? Fill in with the -----+------
         else:
             tui.application.refresh_strip(self, row, col, width)
 
     def handle_timeout (self, msg):
         self.title_bar.handle_timeout(msg)
+        #self.status_bar.handle_timeout(msg)
         self.act('tick_tock')
         self.integrate_updates(0, 0, self.title_bar.fetch_updates())
+        self.integrate_updates(self.height-1, 0, self.status_bar.fetch_updates())
 
     def act (self, func, *l, **kw):
         if self.active_stream_win:
