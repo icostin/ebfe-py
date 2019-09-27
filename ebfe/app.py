@@ -169,7 +169,7 @@ class stream_edit_window (tui.window):
                     #c = ' '
                     n = blk.size
                 #stext += self.sfmt('{item1_sep} '.join((x for i in range(n))))
-                for i in range(blk.size):
+                for i in range(n):
                     if i+o != 0:
                         stext += self.sfmt('{item1_sep} ')
                         if self.column_size != 0 and ((i+o) % self.column_size) == 0:
@@ -227,8 +227,9 @@ class stream_edit_window (tui.window):
 
     def vmove (self, count = 1):
         self.stream_offset += self.items_per_line * count
-        self.refresh_on_next_tick = True
-        self.refresh(height = 2)
+        #self.refresh_on_next_tick = True
+        #self.refresh(height = 2)
+        self.refresh()
 
     def shift_offset (self, disp):
         self.stream_offset += disp
