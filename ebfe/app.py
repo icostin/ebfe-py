@@ -139,7 +139,7 @@ class status_bar (tui.window):
         stext = self.sfmt('{default_status_bar}Test:{}', ' ' * (self.width - 5))
         self.put(0, 0, stext, clip_col = col, clip_width = width)
 
-#* status_bar ****************************************************************
+#* job details **************************************************************
 class processing_details (tui.window):
     '''
     Processing Job details
@@ -150,9 +150,27 @@ class processing_details (tui.window):
             default_status_bar
             '''
         )
+        self.lines_to_display = 1
 
     def refresh_strip (self, row, col, width):
         stext = self.sfmt('{default_status_bar}Working...{}', ' ' * (self.width - 10))
+        self.put(row, 0, stext, clip_col = col, clip_width = width)
+
+#* console ******************************************************************
+class console (tui.window):
+    '''
+    Console for commands
+    '''
+    def __init__ (self):
+        tui.window.__init__(self,
+            styles = '''
+            default_console
+            '''
+        )
+        self.lines_to_display = 8
+
+    def refresh_strip (self, row, col, width):
+        stext = self.sfmt('{default_console}:{}', ' ' * (self.width - 1))
         self.put(row, 0, stext, clip_col = col, clip_width = width)
 
 #* stream_edit_window *******************************************************
@@ -295,9 +313,6 @@ class stream_edit_window (tui.window):
             self.refresh_on_next_tick = False
             self.refresh()
 
-    def toggle_job_details(self):
-        self.refresh()
-
 
 #* editor *******************************************************************
 class editor (tui.application):
@@ -315,6 +330,9 @@ class editor (tui.application):
 
         self.job_details = processing_details()
         self.job_details.show = False
+        
+        self.console = console()
+        self.console.show = False
 
         self.mode = 'normal' # like vim normal mode
 
@@ -383,47 +401,82 @@ class editor (tui.application):
             uncached_char attr=normal fg=12 bg=0
             missing_char attr=normal fg=8 bg=0
             default_status_bar attr=normal fg=7 bg=4
+            default_console attr=normal fg=0 bg=7
             ''')
         return sm
 
     def resize (self, width, height):
+        h = 0
         self.width = width
         self.height = height
+
         if width > 0 and height > 0: 
             self.title_bar.resize(width, 1)
-            self.status_bar.resize(width, 1)
-            if self.job_details.show and height >= 5:
-                self.job_details.resize(width, 3)
+            self.title_bar.render_starting_line = 0
+            h += 1
+            
+            if self.job_details.show and height > self.job_details.lines_to_display + h:
+                self.job_details.resize(width, self.job_details.lines_to_display)
+                self.job_details.render_starting_line = 1
+                h += self.job_details.lines_to_display
             else:
                 self.job_details.resize(width, 0)
-        dmsg("self.job_details.height = {}", self.job_details.height)
-        if self.active_stream_win and width > 0 and height > (2 + self.job_details.height):
-            self.active_stream_win.resize(width, height - (2 + self.job_details.height))
-        if width > 0 and height > 0: self.refresh()
+                self.job_details.render_starting_line = -1
+
+            if height > h:
+                self.status_bar.resize(width, 1)
+                self.status_bar.render_starting_line = height - 1
+                h += 1
+            
+            if self.console.show and height > h:
+                self.console.resize(width, self.console.lines_to_display)
+                self.console.render_starting_line = height - (1 + self.console.lines_to_display)
+                h += self.console.lines_to_display
+            else:
+                self.console.resize(width, 0)
+                self.console.render_starting_line = -1
+
+            if self.active_stream_win and width > 0 and height > h:
+                self.active_stream_win.resize(width, height - h)
+                if self.job_details.show:
+                    self.active_stream_win.render_starting_line = self.job_details.lines_to_display + 1
+                else:
+                    self.active_stream_win.render_starting_line = 1     # just the title bar
+
+        self.refresh()
 
     def refresh_strip (self, row, col, width):
         # title bar
-        if row == 0:
+        if  row == 0:
             self.title_bar.refresh_strip(0, col, width)
             self.integrate_updates(0, 0, self.title_bar.fetch_updates())
         # processing details
-        elif self.job_details.show and row > 0 and row <= self.job_details.height:
-            #dmsg("UPDATING JOB DETAILS, row: {}, col: {}, width: {}", row, col, width)
-            self.job_details.refresh_strip(row-1, col, width)
-            self.integrate_updates(1, 0, self.job_details.fetch_updates())
+        elif (self.job_details.show 
+                and row >= self.job_details.render_starting_line 
+                and row < self.job_details.render_starting_line + self.job_details.height
+            ):
+            self.job_details.refresh_strip(row - self.job_details.render_starting_line, col, width)
+            self.integrate_updates(self.job_details.render_starting_line, 0, self.job_details.fetch_updates())
         # hex edit with processing details active
-        elif self.job_details.show and row > self.job_details.height and row < self.height - 1 and self.active_stream_win:
-            dmsg("UPDATING HEX with JOB active, row: {}, col: {}, width: {}, jobH: {}", row, col, width, self.job_details.height)
-            self.active_stream_win.refresh_strip(row - (1 + self.job_details.height), col, width)
-            self.integrate_updates(self.job_details.height + 1, 0, self.active_stream_win.fetch_updates())
-        elif not self.job_details.show and row > 0 and row < self.height - 1 and self.active_stream_win:
-            dmsg("UPDATING HEX with JOB active, row: {}, col: {}, width: {}, jobH: {}", row, col, width, self.job_details.height)
-            self.active_stream_win.refresh_strip(row - 1, col, width)
-            self.integrate_updates(1, 0, self.active_stream_win.fetch_updates())
+        elif (row >= self.active_stream_win.render_starting_line 
+                and row < self.active_stream_win.render_starting_line + self.active_stream_win.height 
+                and self.active_stream_win
+                ):
+            self.active_stream_win.refresh_strip(row - self.active_stream_win.render_starting_line, col, width)
+            self.integrate_updates(self.active_stream_win.render_starting_line, 0, self.active_stream_win.fetch_updates())
+        # console
+        elif (self.console.show 
+                and row >= self.console.render_starting_line 
+                and row < self.console.render_starting_line + self.console.height
+            ):
+            self.console.refresh_strip(row - self.console.render_starting_line, col, width)
+            self.integrate_updates(self.console.render_starting_line, 0, self.console.fetch_updates())
         # status bar
-        elif row == self.height - 1:
-            self.status_bar.refresh_strip(0, col, width)
-            self.integrate_updates(self.height-1, 0, self.status_bar.fetch_updates())
+        elif (row >= self.status_bar.render_starting_line 
+                and row < self.status_bar.render_starting_line + self.status_bar.height
+                ):
+            self.status_bar.refresh_strip(row - self.status_bar.render_starting_line, col, width)
+            self.integrate_updates(self.status_bar.render_starting_line, 0, self.status_bar.fetch_updates())
         # anything else ?!? Fill in with the -----+------
         else:
             tui.application.refresh_strip(self, row, col, width)
@@ -461,7 +514,12 @@ class editor (tui.application):
                 self.job_details.show = True
             self.resize(self.width, self.height)
             dmsg("Height job: {}, height hex: {}", self.job_details.height, self.active_stream_win.height)
-            self.act('toggle_job_details')
+        elif msg.ch[1] in (':',):
+            if self.console.show:
+                self.console.show = False
+            else:
+                self.console.show = True
+            self.resize(self.width, self.height)
         elif msg.ch[1] in ('\x06',): self.act('vmove', self.height - 3) # Ctrl-F
         elif msg.ch[1] in ('\x02',): self.act('vmove', -(self.height - 3)) # Ctrl-B
         elif msg.ch[1] in ('\x04',): self.act('vmove', self.height // 3) # Ctrl-D

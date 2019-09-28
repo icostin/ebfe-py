@@ -249,6 +249,7 @@ class window (object):
         self.can_have_focus = can_have_focus
         self.show = show
         self.in_focus = False
+        self.render_starting_line = -1
         self.style_names = styles.split()
         self.default_style_name = self.style_names[0]
         self.style_markers = { s: '\a{}\b'.format(s) for s in self.style_names }
