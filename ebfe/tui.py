@@ -38,6 +38,11 @@ screen_size = namedtuple('screen_size', 'width height'.split())
 
 style_caps = namedtuple('style_caps', 'attr fg_count bg_count fg_default bg_default'.split())
 
+def ranges_intersect (a, b, c, d):
+    '''
+    Returns true if and only if [a, b) intersects with [c, d)
+    '''
+    return c < b and d > a
 
 #* message ******************************************************************
 class message (object):
@@ -374,6 +379,26 @@ class window (object):
         u = self.updates
         self.wipe_updates()
         return u
+
+class cc_window (window):
+    '''
+    Cached-content window.
+    This window caches the content that needs displaying.
+    When refresh() or refresh_strip() is called it just
+    provides the relevant portion of the cache.
+    '''
+
+    def __init__ (self, init_content = None, width = 0, height = 0, styles = 'default'):
+        window.__init__(self, width, height, styles)
+        self.content = []
+        self.top_row = 0
+        if init_content: self.set_content(init_content, 0)
+
+    def set_content (self, text, row = 0):
+        l = text.splitlines()
+        self.content[row : row + len(l)] = l
+
+        
 
 class application (window):
     '''
