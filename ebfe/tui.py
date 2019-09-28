@@ -108,9 +108,21 @@ class driver (object):
         Goes through all update strips and renders them.
         No need to overload this.
         '''
+        show_focus = False
+        focus_row = 0
+        focus_col = 0
         for row, strips in updates.items():
             for s in strips:
-                self.render_text(s.text, s.style_name, s.col, row)
+                if len(s.text) > 0:
+                    self.render_text(s.text, s.style_name, s.col, row)
+                    #if not show_focus and s.text[0] == '*' and s.style_name == 'test_focus':
+                    if s.text[0] == '*' and s.style_name == 'test_focus':
+                        show_focus = True
+                        focus_row = row
+                        focus_col = s.col
+                        dmsg("RENDER FOCUS CHAR POSITION -> row: {}, s_col: {}, text: {}, style: {}", row, s.col, s.text[:1], s.style_name)
+        if show_focus:
+            self.render_text('*', 'test_focus', focus_col, focus_row)
 
     def render_text (self, text, style_name, column, row):
         '''
@@ -250,7 +262,7 @@ class window (object):
         self.show = show
         self.in_focus = False
         self.render_starting_line = -1
-        self.style_names = styles.split()
+        self.style_names = (styles+' test_focus').split()
         self.default_style_name = self.style_names[0]
         self.style_markers = { s: '\a{}\b'.format(s) for s in self.style_names }
         self.wipe_updates()
@@ -384,8 +396,11 @@ class window (object):
         '''
         It can switch from being in focus to out of focus
         if the focusing mechanism is enabled (disabled by default)
+        It will always be able to switch out of focus!
         '''
-        if self.can_have_focus and self.show:
+        if not is_it:
+            self.in_focus = is_it
+        elif self.can_have_focus and self.show:
             self.in_focus = is_it
 
 

@@ -113,7 +113,6 @@ class title_bar (tui.window):
 
         self.put(0, 0, stext, clip_col = col, clip_width = width)
         #self.put(0, col, text, [col : col + width])
-        return
 
     def handle_timeout (self, msg):
         self.tick += 1
@@ -155,6 +154,10 @@ class processing_details (tui.window):
     def refresh_strip (self, row, col, width):
         stext = self.sfmt('{default_status_bar}Working...{}', ' ' * (self.width - 10))
         self.put(row, 0, stext, clip_col = col, clip_width = width)
+        if self.in_focus and row == 0:
+            dmsg("processing_details - ADD FOCUS CHAR TO THE UPDATE LIST")
+            self.write_(0, 0, 'test_focus', '*')
+
 
 #* console ******************************************************************
 class console (tui.window):
@@ -170,8 +173,11 @@ class console (tui.window):
         self.lines_to_display = 8
 
     def refresh_strip (self, row, col, width):
-        stext = self.sfmt('{default_console}:{}', ' ' * (self.width - 1))
+        stext = self.sfmt('{default_console}{}:{}', row, ' ' * self.width)
         self.put(row, 0, stext, clip_col = col, clip_width = width)
+        if self.in_focus and row == 0:
+            dmsg("console - ADD FOCUS CHAR TO THE UPDATE LIST")
+            self.write_(0, 0, 'test_focus', '*')
 
 #* stream_edit_window *******************************************************
 class stream_edit_window (tui.window):
@@ -288,6 +294,9 @@ class stream_edit_window (tui.window):
         sw = tui.compute_styled_text_width(stext)
         stext += self.sfmt('{default}{}', ' ' * max(0, self.width  - sw))
         self.put(row, 0, stext, clip_col = col, clip_width = width)
+        if self.in_focus and row == 0:
+            dmsg("hex window - ADD FOCUS CHAR TO THE UPDATE LIST, self: {}, focus: {}, height: {}", self, self.in_focus, self.height)
+            self.write_(0, 0, 'test_focus', '*')
 
     def vmove (self, count = 1):
         self.stream_offset += self.items_per_line * count
@@ -364,9 +373,11 @@ class editor (tui.application):
         self.title_bar = title_bar('ebfe - EBFE Binary File Editor')
 
         self.job_details = processing_details()
+        #self.job_details.can_have_focus = True
         self.job_details.show = False
         
         self.console = console()
+        self.console.can_have_focus = True
         self.console.show = False
 
         self.mode = 'normal' # like vim normal mode
@@ -387,8 +398,62 @@ class editor (tui.application):
 
         self.active_stream_index = 0
         self.active_stream_win = self.stream_windows[self.active_stream_index]
+        self.active_stream_win.can_have_focus = True
+
+        # Build the list of windows which can receive focus
+        self.win_focus_list = []
+        #self.win_focus_list.append(self.job_details)   # made focusable for testing purposes
+        self.win_focus_list.append(self.active_stream_win)
+        self.win_focus_list.append(self.console)
+        self.focus_index = 0                            # it won't change focus if window is not visible anyways
+        self.old_focus_index = self.focus_index         # init the old as well
+        self.focus_to(self.active_stream_win)
         
         self.status_bar = status_bar('EBFE Binary File Editor')
+
+    def focus_next (self):
+        index = self.focus_index
+        s = len(self.win_focus_list)
+        for i in range(s):
+            index += 1
+            if index >= s:
+                index = 0
+            # break if we are back where we started
+            if index == self.focus_index:
+                break
+            if self.win_focus_list[index].show:
+                self.process_focus(index)
+                self.refresh()
+                break
+
+    def focus_to (self, w):
+        if w.can_have_focus and w.show:
+            for index in range(len(self.win_focus_list)):
+                if w is self.win_focus_list[index]:
+                    self.process_focus(index)
+
+    def focus_back (self):
+        index = self.old_focus_index
+        w = self.win_focus_list[index]
+        if not w.can_have_focus or not w.show:
+            self.focus_to(self.active_stream_win)
+        else:
+            self.process_focus(index)
+        #self.focus_to(self.active_stream_win)
+
+    def process_focus (self, index):
+        self.win_focus_list[self.focus_index].focus(False)
+        self.old_focus_index = self.focus_index
+        self.focus_index = index
+        self.win_focus_list[index].focus()
+        #out = ''
+        #for w in self.win_focus_list:
+        #    if w.in_focus:
+        #        out += 'YES '
+        #    else:
+        #        out += 'NO '
+        #dmsg("WINDOW STATUS: {}", out)
+        #self.refresh()
 
     def generate_style_map (self, style_caps):
         # sm = {}
@@ -437,6 +502,7 @@ class editor (tui.application):
             missing_char attr=normal fg=8 bg=0
             default_status_bar attr=normal fg=7 bg=4
             default_console attr=normal fg=0 bg=7
+            test_focus attr=normal fg=7 bg=1
             ''')
         return sm
 
@@ -547,20 +613,27 @@ class editor (tui.application):
         elif msg.ch[1] in ('w',):
             if self.job_details.show:
                 self.job_details.show = False
+                if self.job_details.in_focus:
+                    self.focus_back()
             else:
                 self.job_details.show = True
+                self.focus_to(self.job_details)
             self.resize(self.width, self.height)
             dmsg("Height job: {}, height hex: {}", self.job_details.height, self.active_stream_win.height)
         elif msg.ch[1] in (':',):
             if self.console.show:
                 self.console.show = False
+                if self.console.in_focus:
+                    self.focus_back()
             else:
                 self.console.show = True
+                self.focus_to(self.console)
             self.resize(self.width, self.height)
         elif msg.ch[1] in ('\n',): self.act('cycle_modes')
         elif msg.ch[1] in ('\x06', ' '): self.act('vmove', self.height - 3) # Ctrl-F
         elif msg.ch[1] in ('\x02',): self.act('vmove', -(self.height - 3)) # Ctrl-B
         elif msg.ch[1] in ('\x04',): self.act('vmove', self.height // 3) # Ctrl-D
         elif msg.ch[1] in ('\x15',): self.act('vmove', -(self.height // 3)) # Ctrl-U
+        elif msg.ch[1] in ('\t',): self.focus_next() # Ctrl-TAB
         else:
             dmsg("Unknown key: {}", msg.ch)
