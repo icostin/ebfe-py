@@ -337,6 +337,21 @@ class stream_edit_window (tui.window):
             self.show_hex = True
             self.items_per_line = self.prev_items_per_line
         self.refresh()
+    
+    def handle_keystate (self, msg):
+        if msg.ch[1] in ('j', 'J'): self.vmove(+1)
+        elif msg.ch[1] in ('k', 'K'): self.vmove(-1)
+        elif msg.ch[1] in ('<',): self.shift_offset(-1)
+        elif msg.ch[1] in ('>',): self.shift_offset(+1)
+        elif msg.ch[1] in ('_',): self.adjust_items_per_line(-1)
+        elif msg.ch[1] in ('+',): self.adjust_items_per_line(+1)
+        elif msg.ch[1] in ('\n',): self.cycle_modes()
+        elif msg.ch[1] in ('\x06', ' '): self.vmove(self.height - 3) # Ctrl-F
+        elif msg.ch[1] in ('\x02',): self.vmove(-(self.height - 3)) # Ctrl-B
+        elif msg.ch[1] in ('\x04',): self.vmove(self.height // 3) # Ctrl-D
+        elif msg.ch[1] in ('\x15',): self.vmove(-(self.height // 3)) # Ctrl-U
+        else:
+            dmsg("Unknown key: {}", msg.ch)
 
 #* editor *******************************************************************
 class editor (tui.application):
@@ -582,12 +597,7 @@ class editor (tui.application):
 
     def handle_keystate (self, msg):
         if msg.ch[1] in ('q', 'Q', 'ESC'): self.quit()
-        elif msg.ch[1] in ('j', 'J'): self.act('vmove', 1)
-        elif msg.ch[1] in ('k', 'K'): self.act('vmove', -1)
-        elif msg.ch[1] in ('<',): self.act('shift_offset', -1)
-        elif msg.ch[1] in ('>',): self.act('shift_offset', +1)
-        elif msg.ch[1] in ('_',): self.act('adjust_items_per_line', -1)
-        elif msg.ch[1] in ('+',): self.act('adjust_items_per_line', +1)
+        elif msg.ch[1] in ('\t',): self.focus_next() # Ctrl-TAB
         elif msg.ch[1] in ('w',):
             if self.job_details.show:
                 self.job_details.show = False
@@ -607,11 +617,13 @@ class editor (tui.application):
                 self.console.show = True
                 self.focus_to(self.console)
             self.resize(self.width, self.height)
-        elif msg.ch[1] in ('\n',): self.act('cycle_modes')
-        elif msg.ch[1] in ('\x06', ' '): self.act('vmove', self.height - 3) # Ctrl-F
-        elif msg.ch[1] in ('\x02',): self.act('vmove', -(self.height - 3)) # Ctrl-B
-        elif msg.ch[1] in ('\x04',): self.act('vmove', self.height // 3) # Ctrl-D
-        elif msg.ch[1] in ('\x15',): self.act('vmove', -(self.height // 3)) # Ctrl-U
-        elif msg.ch[1] in ('\t',): self.focus_next() # Ctrl-TAB
+
+        # All these messages need to be routed to the window in focus
         else:
-            dmsg("Unknown key: {}", msg.ch)
+            for w in self.win_focus_list:
+                if w.in_focus:
+                    if hasattr(w, 'handle_keystate'):
+                        getattr(w, 'handle_keystate')(msg)
+                        self.integrate_updates(w.render_starting_line, 0, w.fetch_updates())
+                        #self.refresh()
+
