@@ -329,6 +329,26 @@ class stream_edit_window (tui.window):
             self.items_per_line = self.prev_items_per_line
         self.refresh()
 
+    def jump_to_end (self):
+        n = self.items_per_line
+        end_offset = self.stream_cache.get_known_end_offset()
+        if self.stream_offset <= end_offset \
+                and end_offset < self.stream_offset + self.height * n:
+            return
+        start_ofs_mod = self.stream_offset % n
+        bottom_offset = (end_offset - start_ofs_mod + n - 1) // n * n + start_ofs_mod
+        self.stream_offset = bottom_offset - n * self.height
+        if self.stream_offset <= start_ofs_mod - n:
+            self.stream_offset = start_ofs_mod
+        self.refresh()
+
+    def jump_to_begin (self):
+        n = self.items_per_line
+        self.stream_offset = self.stream_offset % n
+        if self.stream_offset > 0:
+            self.stream_offset -= n;
+        self.refresh()
+
 #* editor *******************************************************************
 class editor (tui.application):
     '''
@@ -520,6 +540,8 @@ class editor (tui.application):
         elif msg.ch[1] in ('k', 'K'): self.act('vmove', -1)
         elif msg.ch[1] in ('<',): self.act('shift_offset', -1)
         elif msg.ch[1] in ('>',): self.act('shift_offset', +1)
+        elif msg.ch[1] in ('g',): self.act('jump_to_begin')
+        elif msg.ch[1] in ('G',): self.act('jump_to_end')
         elif msg.ch[1] in ('_',): self.act('adjust_items_per_line', -1)
         elif msg.ch[1] in ('+',): self.act('adjust_items_per_line', +1)
         elif msg.ch[1] in ('w',):
