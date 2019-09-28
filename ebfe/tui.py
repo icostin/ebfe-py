@@ -115,13 +115,14 @@ class driver (object):
             for s in strips:
                 if len(s.text) > 0:
                     self.render_text(s.text, s.style_name, s.col, row)
-                    if s.text[0] == '@' and s.style_name == 'test_focus':
+                    #if not show_focus and s.text[0] == '*' and s.style_name == 'test_focus':
+                    if s.text[0] == '*' and s.style_name == 'test_focus':
                         show_focus = True
                         focus_row = row
                         focus_col = s.col
-                        dmsg("row: {}, s_col: {}, text: {}, style: {}", row, s.col, s.text[:1], s.style_name)
+                        dmsg("RENDER FOCUS CHAR POSITION -> row: {}, s_col: {}, text: {}, style: {}", row, s.col, s.text[:1], s.style_name)
         if show_focus:
-            self.render_text('@', 'test_focus', focus_col, focus_row)
+            self.render_text('*', 'test_focus', focus_col, focus_row)
 
     def render_text (self, text, style_name, column, row):
         '''
@@ -253,7 +254,7 @@ class window (object):
     - resize() - if the window has children or custom fields need adjusting
     '''
 
-    def __init__ (self, width = 0, height = 0, styles = 'default', can_have_focus = True, show = True):
+    def __init__ (self, width = 0, height = 0, styles = 'default', can_have_focus = False, show = True):
         object.__init__(self)
         self.width = width
         self.height = height
@@ -387,8 +388,6 @@ class window (object):
         Extracts the updates from this window.
         No need to overload this
         '''
-        if self.in_focus:
-            self.write(0, 0, 'test_focus', '@')
         u = self.updates
         self.wipe_updates()
         return u
@@ -397,8 +396,11 @@ class window (object):
         '''
         It can switch from being in focus to out of focus
         if the focusing mechanism is enabled (disabled by default)
+        It will always be able to switch out of focus!
         '''
-        if self.can_have_focus and self.show:
+        if not is_it:
+            self.in_focus = is_it
+        elif self.can_have_focus and self.show:
             self.in_focus = is_it
 
 
