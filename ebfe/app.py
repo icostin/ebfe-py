@@ -170,7 +170,7 @@ class console (tui.window):
         self.lines_to_display = 8
 
     def refresh_strip (self, row, col, width):
-        stext = self.sfmt('{default_console}:{}', ' ' * (self.width - 1))
+        stext = self.sfmt('{default_console}{}:{}', row, ' ' * self.width)
         self.put(row, 0, stext, clip_col = col, clip_width = width)
 
 #* stream_edit_window *******************************************************
@@ -367,6 +367,7 @@ class editor (tui.application):
 
         self.active_stream_index = 0
         self.active_stream_win = self.stream_windows[self.active_stream_index]
+        self.active_stream_win.focus()
         
         self.status_bar = status_bar('EBFE Binary File Editor')
 
@@ -417,6 +418,7 @@ class editor (tui.application):
             missing_char attr=normal fg=8 bg=0
             default_status_bar attr=normal fg=7 bg=4
             default_console attr=normal fg=0 bg=7
+            test_focus attr=normal fg=7 bg=1
             ''')
         return sm
 
@@ -514,6 +516,48 @@ class editor (tui.application):
         self.server.shutdown()
         raise tui.app_quit(0)
 
+    def next_window (self):
+        if self.title_bar.in_focus:
+            self.title_bar.focus(False)
+            if self.job_details.show:
+                self.job_details.focus()
+                #self.job_details.write_(0, 0, 'test_focus', 'o')
+                dmsg("FOCUS job_details")
+            else:
+                self.active_stream_win.focus()
+                #self.active_stream_win.write_(0, 0, 'test_focus', 'o')
+                dmsg("FOCUS hex")
+        elif self.job_details.show and self.job_details.in_focus:
+            self.job_details.focus(False)
+            self.active_stream_win.focus()
+            #self.active_stream_win.write_(0, 0, 'test_focus', 'o')
+            dmsg("FOCUS hex")
+        elif self.active_stream_win.in_focus:
+            self.active_stream_win.focus(False)
+            if self.console.show:
+                self.console.focus()
+                #self.console.write_(0, 0, 'test_focus', 'o')
+                dmsg("FOCUS console")
+            else:
+                self.status_bar.focus()
+                #self.status_bar.write_(0, 0, 'test_focus', 'o')
+                dmsg("FOCUS status_bar")
+        elif self.console.show and self.console.in_focus:
+            self.console.focus(False)
+            self.status_bar.focus()
+            #self.status_bar.write_(0, 0, 'test_focus', 'o')
+            dmsg("FOCUS status_bar")
+        elif self.status_bar.in_focus:
+            self.status_bar.focus(False)
+            self.title_bar.focus()
+            #self.title_bar.write_(0, 0, 'test_focus', 'o')
+            dmsg("FOCUS title_bar")
+        else:
+            self.active_stream_win.focus()
+            #self.active_stream_win.write_(0, 0, 'test_focus', 'o')
+            dmsg("FOCUS hex")
+        self.refresh()
+
     def handle_keystate (self, msg):
         if msg.ch[1] in ('q', 'Q', 'ESC'): self.quit()
         elif msg.ch[1] in ('j', 'J'): self.act('vmove', 1)
@@ -540,5 +584,6 @@ class editor (tui.application):
         elif msg.ch[1] in ('\x02',): self.act('vmove', -(self.height - 3)) # Ctrl-B
         elif msg.ch[1] in ('\x04',): self.act('vmove', self.height // 3) # Ctrl-D
         elif msg.ch[1] in ('\x15',): self.act('vmove', -(self.height // 3)) # Ctrl-U
+        elif msg.ch[1] in ('\t',): self.next_window() # Ctrl-TAB
         else:
             dmsg("Unknown key: {}", msg.ch)

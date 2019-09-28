@@ -108,9 +108,20 @@ class driver (object):
         Goes through all update strips and renders them.
         No need to overload this.
         '''
+        show_focus = False
+        focus_row = 0
+        focus_col = 0
         for row, strips in updates.items():
             for s in strips:
-                self.render_text(s.text, s.style_name, s.col, row)
+                if len(s.text) > 0:
+                    self.render_text(s.text, s.style_name, s.col, row)
+                    if s.text[0] == '@' and s.style_name == 'test_focus':
+                        show_focus = True
+                        focus_row = row
+                        focus_col = s.col
+                        dmsg("row: {}, s_col: {}, text: {}, style: {}", row, s.col, s.text[:1], s.style_name)
+        if show_focus:
+            self.render_text('@', 'test_focus', focus_col, focus_row)
 
     def render_text (self, text, style_name, column, row):
         '''
@@ -242,7 +253,7 @@ class window (object):
     - resize() - if the window has children or custom fields need adjusting
     '''
 
-    def __init__ (self, width = 0, height = 0, styles = 'default', can_have_focus = False, show = True):
+    def __init__ (self, width = 0, height = 0, styles = 'default', can_have_focus = True, show = True):
         object.__init__(self)
         self.width = width
         self.height = height
@@ -250,7 +261,7 @@ class window (object):
         self.show = show
         self.in_focus = False
         self.render_starting_line = -1
-        self.style_names = styles.split()
+        self.style_names = (styles+' test_focus').split()
         self.default_style_name = self.style_names[0]
         self.style_markers = { s: '\a{}\b'.format(s) for s in self.style_names }
         self.wipe_updates()
@@ -376,6 +387,8 @@ class window (object):
         Extracts the updates from this window.
         No need to overload this
         '''
+        if self.in_focus:
+            self.write(0, 0, 'test_focus', '@')
         u = self.updates
         self.wipe_updates()
         return u
