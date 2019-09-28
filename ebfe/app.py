@@ -142,8 +142,10 @@ class stream_edit_window (tui.window):
         self.stream_offset = 0
         #self.offset_format = '{:+08X}: '
         self.items_per_line = cfg.iget('window: hex edit', 'items_per_line', 16)
+        self.prev_items_per_line = self.items_per_line
         self.column_size = cfg.iget('window: hex edit', 'column_size', 4)
         self.refresh_on_next_tick = False
+        self.show_hex = True
 
     def refresh_strip (self, row, col, width):
         row_offset = self.stream_offset + row * self.items_per_line
@@ -169,24 +171,26 @@ class stream_edit_window (tui.window):
                     #c = ' '
                     n = blk.size
                 #stext += self.sfmt('{item1_sep} '.join((x for i in range(n))))
-                for i in range(n):
-                    if i+o != 0:
-                        stext += self.sfmt('{item1_sep} ')
-                        if self.column_size != 0 and ((i+o) % self.column_size) == 0:
-                            stext += ' '
-                    stext += self.sfmt(x)
+                if self.show_hex:
+                    for i in range(n):
+                        if i+o != 0:
+                            stext += self.sfmt('{item1_sep} ')
+                            if self.column_size != 0 and ((i+o) % self.column_size) == 0:
+                                stext += ' '
+                        stext += self.sfmt(x)
                 #text += ' '.join((x for i in range(n)))
                 last_cstrip_style = '{missing_char}'
                 cstrip += self.sfmt(last_cstrip_style + '{}', c * n)
             elif blk.kind == zlx.io.SCK_UNCACHED:
                 #text += ' '.join(('??' for i in range(blk.size)))
                 #stext += self.sfmt('{item1_sep} '.join(('{uncached_item}??' for i in range(blk.size))))
-                for i in range(blk.size):
-                    if i+o != 0:
-                        stext += self.sfmt('{item1_sep} ')
-                        if self.column_size != 0 and ((i+o) % self.column_size) == 0:
-                            stext += ' '
-                    stext += self.sfmt('{uncached_item}??')
+                if self.show_hex:
+                    for i in range(blk.size):
+                        if i+o != 0:
+                            stext += self.sfmt('{item1_sep} ')
+                            if self.column_size != 0 and ((i+o) % self.column_size) == 0:
+                                stext += ' '
+                        stext += self.sfmt('{uncached_item}??')
 
                 last_cstrip_style = '{uncached_char}'
                 cstrip += self.sfmt(last_cstrip_style + '?' * blk.size)
@@ -196,11 +200,12 @@ class stream_edit_window (tui.window):
                 #stext += self.sfmt('{item1_sep} ').join((self.sfmt('{known_item}{:02X}', b) for b in blk.data))
                 i = 0
                 for b in blk.data:
-                    if i + o != 0:
-                        stext += self.sfmt('{item1_sep} ')
-                        if self.column_size != 0 and ((i+o) % self.column_size) == 0:
-                            stext += ' '
-                    stext += self.sfmt('{known_item}{:02X}', b)
+                    if self.show_hex:
+                        if i + o != 0:
+                            stext += self.sfmt('{item1_sep} ')
+                            if self.column_size != 0 and ((i+o) % self.column_size) == 0:
+                                stext += ' '
+                        stext += self.sfmt('{known_item}{:02X}', b)
 
                     if b >= 0x20 and b <= 0x7E:
                         cstrip_style = '{normal_char}'
@@ -217,7 +222,8 @@ class stream_edit_window (tui.window):
             o += blk.get_size()
             #text += ' '
             #stext += self.sfmt('{item1_sep} ')
-        stext += self.sfmt('{item_char_sep}  ') + cstrip
+        if self.show_hex: stext += self.sfmt('{item_char_sep}  ')
+        stext += cstrip
         #text += ' ' + cstrip
         #text = text.ljust(self.width)
         #self.write(row, 0, 'default', text, clip_col = col, clip_width = width)
@@ -246,6 +252,16 @@ class stream_edit_window (tui.window):
         if self.refresh_on_next_tick or upd:
             self.refresh_on_next_tick = False
             self.refresh()
+
+    def cycle_modes (self):
+        if self.show_hex:
+            self.show_hex = False
+            self.prev_items_per_line = self.items_per_line
+            self.items_per_line = max(self.width - 12, 1)
+        else:
+            self.show_hex = True
+            self.items_per_line = self.prev_items_per_line
+        self.refresh()
 
 #* editor *******************************************************************
 class editor (tui.application):
@@ -369,7 +385,8 @@ class editor (tui.application):
         elif msg.ch[1] in ('>',): self.act('shift_offset', +1)
         elif msg.ch[1] in ('_',): self.act('adjust_items_per_line', -1)
         elif msg.ch[1] in ('+',): self.act('adjust_items_per_line', +1)
-        elif msg.ch[1] in ('\x06',): self.act('vmove', self.height - 3) # Ctrl-F
+        elif msg.ch[1] in ('\n',): self.act('cycle_modes')
+        elif msg.ch[1] in ('\x06', ' '): self.act('vmove', self.height - 3) # Ctrl-F
         elif msg.ch[1] in ('\x02',): self.act('vmove', -(self.height - 3)) # Ctrl-B
         elif msg.ch[1] in ('\x04',): self.act('vmove', self.height // 3) # Ctrl-D
         elif msg.ch[1] in ('\x15',): self.act('vmove', -(self.height // 3)) # Ctrl-U
