@@ -278,6 +278,8 @@ class editor (tui.application):
         self.title_bar = title_bar('ebfe - EBFE Binary File Editor')
         self.mode = 'normal' # like vim normal mode
 
+        self.help_win = None
+
         self.stream_windows = []
         if not cli.file:
             cli.file.append('mem://0')
@@ -357,9 +359,10 @@ class editor (tui.application):
             self.title_bar.refresh_strip(0, col, width)
             self.integrate_updates(0, 0, self.title_bar.fetch_updates())
             return
-        elif row >= 1 and row < self.height - 1 and self.active_stream_win:
-            self.active_stream_win.refresh_strip(row - 1, col, width)
-            self.integrate_updates(1, 0, self.active_stream_win.fetch_updates())
+        elif row >= 1 and row < self.height - 1:
+            if self.active_stream_win:
+                self.active_stream_win.refresh_strip(row - 1, col, width)
+                self.integrate_updates(1, 0, self.active_stream_win.fetch_updates())
         else:
             tui.application.refresh_strip(self, row, col, width)
 
@@ -377,8 +380,19 @@ class editor (tui.application):
         self.server.shutdown()
         raise tui.app_quit(0)
 
+    def toggle_help (self):
+        if self.width > 40:
+            hw = min(40, self.width // 2)
+            self.help_win = tui.cc_window(styles = '''normal stress heading''')
+            self.help_win = set_fmt_content(0, '''
+{heading}Global shortcuts
+{stress}F1{normal} toggle help
+            '''.strip())
+        self.refresh()
+
     def handle_keystate (self, msg):
         if msg.ch[1] in ('q', 'Q', 'ESC'): self.quit()
+        elif msg.ch[1] in ('KEY_F(1)',): self.toggle_help()
         elif msg.ch[1] in ('j', 'J'): self.act('vmove', 1)
         elif msg.ch[1] in ('k', 'K'): self.act('vmove', -1)
         elif msg.ch[1] in ('<',): self.act('shift_offset', -1)

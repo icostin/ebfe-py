@@ -394,11 +394,42 @@ class cc_window (window):
         self.top_row = 0
         if init_content: self.set_content(init_content, 0)
 
-    def set_content (self, text, row = 0):
+    def set_content (self, row, text):
+        '''updates the cached content. No need to overload this!'''
         l = text.splitlines()
+        while row > len(self.content):
+            self.content.append('')
         self.content[row : row + len(l)] = l
 
-        
+    def set_fmt_content (self, row, fmt_text, *l, **kw):
+        self.set_content(row = row, text = self.sfmt(fmt_text, *l, **kw))
+
+    def scroll (self, delta, absolute = False):
+        if absolute: self.top_row = 0
+        self.top_row += delta
+
+    def refresh_strip (self, row, col, width):
+        logical_row = self.top_row + row
+        if logical_row >= 0 and logical_row < len(self.content):
+            txt = self.content[logical_row]
+        else:
+            txt = ''
+        w = compute_styled_text_width(txt)
+        if w < self.width: txt += self.sfmt('{default}' + ' ' * (self.width - w))
+        self.put(row, 0, txt, clip_col = col, clip_width = width)
+
+    def regenerate_content (self):
+        '''
+        Overload this if reflowing text is needed
+        '''
+        pass
+
+    def resize (self, width, height):
+        self.width = width
+        self.height = height
+        self.regenerate_content()
+        self.refresh()
+# end cc_window
 
 class application (window):
     '''
