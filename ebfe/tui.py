@@ -113,9 +113,21 @@ class driver (object):
         Goes through all update strips and renders them.
         No need to overload this.
         '''
+        show_focus = False
+        focus_row = 0
+        focus_col = 0
         for row, strips in updates.items():
             for s in strips:
-                self.render_text(s.text, s.style_name, s.col, row)
+                if len(s.text) > 0:
+                    self.render_text(s.text, s.style_name, s.col, row)
+                    #if not show_focus and s.text[0] == '*' and s.style_name == 'test_focus':
+                    if s.text[0] == '*' and s.style_name == 'test_focus':
+                        show_focus = True
+                        focus_row = row
+                        focus_col = s.col
+                        dmsg("RENDER FOCUS CHAR POSITION -> row: {}, s_col: {}, text: {}, style: {}", row, s.col, s.text[:1], s.style_name)
+        if show_focus:
+            self.render_text('*', 'test_focus', focus_col, focus_row)
 
     def render_text (self, text, style_name, column, row):
         '''
@@ -247,11 +259,15 @@ class window (object):
     - resize() - if the window has children or custom fields need adjusting
     '''
 
-    def __init__ (self, width = 0, height = 0, styles = 'default'):
+    def __init__ (self, width = 0, height = 0, styles = 'default', can_have_focus = False, show = True):
         object.__init__(self)
         self.width = width
         self.height = height
-        self.style_names = styles.split()
+        self.can_have_focus = can_have_focus
+        self.show = show
+        self.in_focus = False
+        self.render_starting_line = -1
+        self.style_names = (styles+' test_focus').split()
         self.default_style_name = self.style_names[0]
         self.style_markers = { s: '\a{}\b'.format(s) for s in self.style_names }
         self.wipe_updates()
@@ -270,15 +286,15 @@ class window (object):
         '''
         if row not in self.updates:
             self.updates[row] = []
-        row_strips = self.updates[row]
-        row_strips.append(strip(text, style_name, col))
-        pass
+        self.updates[row].append(strip(text, style_name, col))
 
     def write (self, row, col, style_name, text, clip_col = 0, clip_width = None):
         '''
         Adds the given text taking into account the given clipping coords.
         No need to overload this.
         '''
+        if not self.show:
+            return
         if col < clip_col:
             i = compute_index_of_column(text, clip_col - col)
             if i is None: return
@@ -300,13 +316,11 @@ class window (object):
         for style, text in styled_text_chunks(styled_text, self.default_style_name):
             self.write(row, col, style, text, clip_col, clip_width)
             col += compute_text_width(text)
-        pass
 
     def integrate_updates (self, row_delta, col_delta, updates):
         for row in updates:
             for s in updates[row]:
                 self.write(row + row_delta, s.col + col_delta, s.style_name, s.text)
-        return
 
     def refresh_strip (self, row, col, width):
         '''
@@ -334,6 +348,9 @@ class window (object):
         redrawn.
         No need to overload this.
         '''
+        if not self.show:
+            return
+
         if start_row >= self.height or start_col >= self.width: return
 
         if height is None: height = self.height
@@ -380,56 +397,17 @@ class window (object):
         self.wipe_updates()
         return u
 
-class cc_window (window):
-    '''
-    Cached-content window.
-    This window caches the content that needs displaying.
-    When refresh() or refresh_strip() is called it just
-    provides the relevant portion of the cache.
-    '''
-
-    def __init__ (self, init_content = None, width = 0, height = 0, styles = 'default'):
-        window.__init__(self, width, height, styles)
-        self.content = []
-        self.top_row = 0
-        if init_content: self.set_content(init_content, 0)
-
-    def set_content (self, row, text):
-        '''updates the cached content. No need to overload this!'''
-        l = text.splitlines()
-        while row > len(self.content):
-            self.content.append('')
-        self.content[row : row + len(l)] = l
-
-    def set_fmt_content (self, row, fmt_text, *l, **kw):
-        self.set_content(row = row, text = self.sfmt(fmt_text, *l, **kw))
-
-    def scroll (self, delta, absolute = False):
-        if absolute: self.top_row = 0
-        self.top_row += delta
-
-    def refresh_strip (self, row, col, width):
-        logical_row = self.top_row + row
-        if logical_row >= 0 and logical_row < len(self.content):
-            txt = self.content[logical_row]
-        else:
-            txt = ''
-        w = compute_styled_text_width(txt)
-        if w < self.width: txt += self.sfmt('{default}' + ' ' * (self.width - w))
-        self.put(row, 0, txt, clip_col = col, clip_width = width)
-
-    def regenerate_content (self):
+    def focus (self, is_it = True):
         '''
-        Overload this if reflowing text is needed
+        It can switch from being in focus to out of focus
+        if the focusing mechanism is enabled (disabled by default)
+        It will always be able to switch out of focus!
         '''
-        pass
+        if not is_it:
+            self.in_focus = is_it
+        elif self.can_have_focus and self.show:
+            self.in_focus = is_it
 
-    def resize (self, width, height):
-        self.width = width
-        self.height = height
-        self.regenerate_content()
-        self.refresh()
-# end cc_window
 
 class application (window):
     '''

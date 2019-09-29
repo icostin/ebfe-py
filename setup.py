@@ -16,7 +16,7 @@ setup(name=ebfe.NAME,
       packages=['ebfe'],
       zip_safe=False,
       install_requires=[
-          'zlx >= 0.0.7',
+          'zlx >= 0.0.9',
           'configparser',
       ],
       entry_points = {
