@@ -276,7 +276,9 @@ class stream_edit_window (tui.window):
                         ch = chr(b)
                     else:
                         cstrip_style = '{altered_char}'
-                        ch = '.'
+                        if b == 0: ch = '.'
+                        elif b == 0xFF: ch = '#'
+                        else: ch = '_'
                     if cstrip_style != last_cstrip_style:
                         cstrip += self.sfmt(cstrip_style)
                         last_cstrip_style = cstrip_style
