@@ -375,6 +375,24 @@ class stream_edit_window (tui.window):
         else:
             dmsg("Unknown key: {}", msg.ch)
 
+#* help_window **************************************************************
+class help_window (tui.cc_window):
+    def __init__ (self, width = 0, height = 0):
+        dmsg('help_win: {}x{}', width, height)
+        tui.cc_window.__init__(self, width = width, height = height,
+            styles = '''
+                help_normal
+                help_stress
+                help_heading
+                help_key
+                help_topic
+            ''',
+            init_content = '''
+{help_heading}EBFE - Help
+
+  Welcome to {help_stress}EBFE{help_normal}!
+'''.strip())
+
 #* editor *******************************************************************
 class editor (tui.application):
     '''
@@ -522,6 +540,11 @@ class editor (tui.application):
             default_status_bar attr=normal fg=7 bg=4
             default_console attr=normal fg=0 bg=7
             test_focus attr=normal fg=7 bg=1
+            help_normal attr=normal fg=7 bg=0
+            help_stress attr=normal fg=11 bg=0
+            help_key attr=normal fg=10 bg=0
+            help_heading attr=normal fg=15 bg=0
+            help_topic attr=normal fg=5 bg=0
             ''')
         return sm
 
@@ -582,6 +605,7 @@ class editor (tui.application):
                 and row < self.active_stream_win.render_starting_line + self.active_stream_win.height 
                 and self.active_stream_win
                 ):
+            dmsg('editor: refresh active window')
             self.active_stream_win.refresh_strip(row - self.active_stream_win.render_starting_line, col, width)
             self.integrate_updates(self.active_stream_win.render_starting_line, 0, self.active_stream_win.fetch_updates())
         # console
@@ -599,6 +623,7 @@ class editor (tui.application):
             self.integrate_updates(self.status_bar.render_starting_line, 0, self.status_bar.fetch_updates())
         # anything else ?!? Fill in with the -----+------
         else:
+            dmsg('boo nothing here row={} col={} width={}', row, col, width)
             tui.application.refresh_strip(self, row, col, width)
 
     def handle_timeout (self, msg):
@@ -620,18 +645,19 @@ class editor (tui.application):
         raise tui.app_quit(0)
 
     def toggle_help (self):
-        if self.width > 40:
-            hw = min(40, self.width // 2)
-            self.help_win = tui.cc_window(styles = '''normal stress heading''')
-            self.help_win = set_fmt_content(0, '''
-{heading}Global shortcuts
-{stress}F1{normal} toggle help
-            '''.strip())
+        if self.help_win:
+            self.help_win = None
+            self.active_stream_win = self.stream_windows[self.active_stream_index]
+        else:
+            self.help_win = help_window(width = self.width, height = self.active_stream_win.height)
+            self.help_win.render_starting_line = self.active_stream_win.render_starting_line
+            self.active_stream_win = self.help_win
         self.refresh()
 
     def handle_keystate (self, msg):
         if msg.ch[1] in ('q', 'Q', 'ESC'): self.quit()
         elif msg.ch[1] in ('\t',): self.focus_next() # Ctrl-TAB
+        elif msg.ch[1] in ('KEY_F(1)',): self.toggle_help()
         elif msg.ch[1] in ('w',):
             if self.job_details.show:
                 self.job_details.show = False
