@@ -179,6 +179,26 @@ class console (tui.window):
             dmsg("console - ADD FOCUS CHAR TO THE UPDATE LIST")
             self.write_(0, 0, 'test_focus', '*')
 
+#* panel ********************************************************************
+class panel (tui.window):
+    '''
+    Panel for rich text
+    '''
+    def __init__ (self):
+        tui.window.__init__(self,
+            styles = '''
+            default_panel
+            '''
+        )
+        self.percent_width = 0.5
+
+    def refresh_strip (self, row, col, width):
+        stext = self.sfmt('{default_panel}{}, col: {}, width: {}:{}', row, col, width, ' ' * self.width)
+        self.put(row, 0, stext, clip_col = col, clip_width = width)
+        if self.show and self.in_focus and row == 0:
+            dmsg("console - ADD FOCUS CHAR TO THE UPDATE LIST")
+            self.write_(0, 0, 'test_focus', '*')
+
 #* stream_edit_window *******************************************************
 class stream_edit_window (tui.window):
     '''
@@ -294,11 +314,12 @@ class stream_edit_window (tui.window):
         #text = text.ljust(self.width)
         #self.write(row, 0, 'default', text, clip_col = col, clip_width = width)
         sw = tui.compute_styled_text_width(stext)
+        #dmsg("%%%%%%%%%%%% sw: {}", sw)
         stext += self.sfmt('{default}{}', ' ' * max(0, self.width  - sw))
         self.put(row, 0, stext, clip_col = col, clip_width = width)
         if self.in_focus and row == 0:
             dmsg("hex window - ADD FOCUS CHAR TO THE UPDATE LIST, self: {}, focus: {}, height: {}", self, self.in_focus, self.height)
-            self.write_(0, 0, 'test_focus', '*')
+            self.write_(0, self.render_starting_column, 'test_focus', '*')
 
     def vmove (self, count = 1):
         self.stream_offset += self.items_per_line * count
@@ -398,6 +419,9 @@ class editor (tui.application):
         self.console = console()
         self.console.can_have_focus = True
         self.console.show = False
+        
+        self.panel = panel()
+        self.panel.can_have_focus = True
 
         self.mode = 'normal' # like vim normal mode
 
@@ -423,6 +447,7 @@ class editor (tui.application):
         self.win_focus_list = []
         #self.win_focus_list.append(self.job_details)   # made focusable for testing purposes
         self.win_focus_list.append(self.active_stream_win)
+        self.win_focus_list.append(self.panel)
         self.win_focus_list.append(self.console)
         self.focus_index = 0                            # it won't change focus if window is not visible anyways
         self.old_focus_index = self.focus_index         # init the old as well
@@ -465,14 +490,15 @@ class editor (tui.application):
         self.old_focus_index = self.focus_index
         self.focus_index = index
         self.win_focus_list[index].focus()
-        #out = ''
-        #for w in self.win_focus_list:
-        #    if w.in_focus:
-        #        out += 'YES '
-        #    else:
-        #        out += 'NO '
-        #dmsg("WINDOW STATUS: {}", out)
-        #self.refresh()
+        
+        out = ''
+        for w in self.win_focus_list:
+            if w.in_focus:
+                out += 'YES '
+            else:
+                out += 'NO '
+        dmsg("WINDOW STATUS: {}", out)
+        self.refresh()
 
     def generate_style_map (self, style_caps):
         # sm = {}
@@ -521,6 +547,7 @@ class editor (tui.application):
             missing_char attr=normal fg=8 bg=0
             default_status_bar attr=normal fg=7 bg=4
             default_console attr=normal fg=0 bg=7
+            default_panel attr=normal fg=7 bg=5
             test_focus attr=normal fg=7 bg=1
             ''')
         return sm
@@ -557,15 +584,28 @@ class editor (tui.application):
                 self.console.render_starting_line = -1
 
             if self.active_stream_win and width > 0 and height > h:
-                self.active_stream_win.resize(width, height - h)
+                if self.panel and self.panel.show:
+                    self.panel.resize(round(width * self.panel.percent_width), height - h)
+                    dmsg("Width of panel: {} of {}", self.panel.width, width)
+                    self.active_stream_win.resize(width - self.panel.width, height - h)
+                    dmsg("Width of hex: {} of {}", self.active_stream_win.width, width)
+                    self.panel.render_starting_column = self.active_stream_win.width
+                else:
+                    self.panel.resize(0, 0)
+                    self.panel.render_starting_column = 0
+                    self.active_stream_win.resize(width, height - h)
+
                 if self.job_details.show:
                     self.active_stream_win.render_starting_line = self.job_details.lines_to_display + 1
+                    self.panel.render_starting_line = self.job_details.lines_to_display + 1
                 else:
                     self.active_stream_win.render_starting_line = 1     # just the title bar
+                    self.panel.render_starting_line = 1     # just the title bar
 
         self.refresh()
 
     def refresh_strip (self, row, col, width):
+        #dmsg("REFRESH STRIP: row: {}, col: {}, width: {}", row, col, width)
         # title bar
         if  row == 0:
             self.title_bar.refresh_strip(0, col, width)
@@ -582,8 +622,11 @@ class editor (tui.application):
                 and row < self.active_stream_win.render_starting_line + self.active_stream_win.height 
                 and self.active_stream_win
                 ):
-            self.active_stream_win.refresh_strip(row - self.active_stream_win.render_starting_line, col, width)
+            self.active_stream_win.refresh_strip(row - self.active_stream_win.render_starting_line, col, self.active_stream_win.width)
             self.integrate_updates(self.active_stream_win.render_starting_line, 0, self.active_stream_win.fetch_updates())
+            if self.panel and self.panel.show:
+                self.panel.refresh_strip(row - self.panel.render_starting_line, self.panel.render_starting_column, self.panel.width)
+                self.integrate_updates(self.panel.render_starting_line, self.panel.render_starting_column, self.panel.fetch_updates())
         # console
         elif (self.console.show 
                 and row >= self.console.render_starting_line 
