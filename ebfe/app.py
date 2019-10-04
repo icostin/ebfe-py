@@ -315,7 +315,7 @@ class stream_edit_window (tui.window):
         #self.write(row, 0, 'default', text, clip_col = col, clip_width = width)
         sw = tui.compute_styled_text_width(stext)
         #dmsg("%%%%%%%%%%%% sw: {}", sw)
-        stext += self.sfmt('{default}{}', ' ' * max(0, self.width  - sw))
+        stext += self.sfmt('|{default}{}', ' ' * max(0, self.width  - sw))
         self.put(row, 0, stext, clip_col = col, clip_width = width)
         if self.in_focus and row == 0:
             dmsg("hex window - ADD FOCUS CHAR TO THE UPDATE LIST, self: {}, focus: {}, height: {}", self, self.in_focus, self.height)
@@ -622,7 +622,7 @@ class editor (tui.application):
                 and row < self.active_stream_win.render_starting_line + self.active_stream_win.height 
                 and self.active_stream_win
                 ):
-            self.active_stream_win.refresh_strip(row - self.active_stream_win.render_starting_line, col, self.active_stream_win.width)
+            self.active_stream_win.refresh_strip(row - self.active_stream_win.render_starting_line, col, self.active_stream_win.width - col)
             self.integrate_updates(self.active_stream_win.render_starting_line, 0, self.active_stream_win.fetch_updates())
             if self.panel and self.panel.show:
                 self.panel.refresh_strip(row - self.panel.render_starting_line, self.panel.render_starting_column, self.panel.width)

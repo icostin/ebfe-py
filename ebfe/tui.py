@@ -309,6 +309,7 @@ class window (object):
         return fmt.format(*l, **kw, **self.style_markers)
 
     def put (self, row, col, styled_text, clip_col = 0, clip_width = None):
+        dmsg("************* put self: {}, row: {}, col: {}, clip_col: {}, clip_width: {}", self, row, col, clip_col, clip_width)
         for style, text in styled_text_chunks(styled_text, self.default_style_name):
             self.write(row, col, style, text, clip_col, clip_width)
             col += compute_text_width(text)
