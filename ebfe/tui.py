@@ -247,6 +247,17 @@ def compute_styled_text_index_of_column (styled_text, column):
 def compute_styled_text_width (styled_text):
     return compute_styled_text_index_of_column(styled_text, 9999)[1]
 
+def generate_style_markers (styles_desc):
+    m = {}
+    dflt = None
+    for s in styles_desc.split():
+        if '=' in s: a, b = s.split('=', 1)
+        else: a, b = s, s
+        if not dflt: dflt = a
+        m[a] = ''.join((STYLE_BEGIN, b, STYLE_END))
+    m[''] = m[dflt]
+    return m
+
 #* window *******************************************************************
 class window (object):
     '''
@@ -267,10 +278,12 @@ class window (object):
         self.show = show
         self.in_focus = False
         self.render_starting_line = -1
-        self.style_names = (styles+' test_focus').split()
-        self.default_style_name = self.style_names[0]
-        self.style_markers = { s: '\a{}\b'.format(s) for s in self.style_names }
+        self.render_starting_column = 0
         self.wipe_updates()
+        self.set_styles(styles)
+
+    def set_styles (self, styles):
+        self.style_markers = generate_style_markers(styles + ' test_focus')
 
     def wipe_updates (self):
         '''
@@ -287,21 +300,29 @@ class window (object):
         if row not in self.updates:
             self.updates[row] = []
         self.updates[row].append(strip(text, style_name, col))
+        dmsg('win={!r}({}x{}) write strip: row={} col={} style={!r} text={!r}', self, self.width, self.height, row, col, style_name, text)
 
     def write (self, row, col, style_name, text, clip_col = 0, clip_width = None):
         '''
         Adds the given text taking into account the given clipping coords.
         No need to overload this.
         '''
-        if not self.show:
-            return
+        if not self.show: return
+
+        # limit clipping coords to window width
+        clip_end_col = clip_col + clip_width if clip_width is not None else self.width
+        if clip_col < 0: clip_col = 0
+        if clip_end_col > self.width: clip_end = self.width
+        if clip_col >= clip_end_col: return
+
         if col < clip_col:
             i = compute_index_of_column(text, clip_col - col)
             if i is None: return
             col = clip_col
             text = text[i:]
-        clip_end_col = clip_col + clip_width if clip_width is not None else self.width
-        if clip_end_col > self.width: clip_end_col = self.width
+        #clip_end_col = clip_col + clip_width if clip_width is not None else self.width
+        #if clip_end_col > self.width: clip_end_col = self.width
+        if col >= clip_end_col: return
         i = compute_index_of_column(text, clip_end_col - col)
         if i is not None: text = text[:i]
         self.write_(row, col, style_name, text)
@@ -313,14 +334,15 @@ class window (object):
         return fmt.format(*l, **kw, **self.style_markers)
 
     def put (self, row, col, styled_text, clip_col = 0, clip_width = None):
-        for style, text in styled_text_chunks(styled_text, self.default_style_name):
+        dmsg("************* put self: {}, row: {}, col: {}, clip_col: {}, clip_width: {}", self, row, col, clip_col, clip_width)
+        for style, text in styled_text_chunks(styled_text, ''):
             self.write(row, col, style, text, clip_col, clip_width)
             col += compute_text_width(text)
 
     def integrate_updates (self, row_delta, col_delta, updates):
         for row in updates:
             for s in updates[row]:
-                self.write(row + row_delta, s.col + col_delta, s.style_name, s.text)
+                self.write_(row + row_delta, s.col + col_delta, s.style_name, s.text)
 
     def refresh_strip (self, row, col, width):
         '''
