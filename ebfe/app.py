@@ -315,7 +315,7 @@ class stream_edit_window (tui.window):
         #self.write(row, 0, 'default', text, clip_col = col, clip_width = width)
         sw = tui.compute_styled_text_width(stext)
         #dmsg("%%%%%%%%%%%% sw: {}", sw)
-        stext += self.sfmt('|{default}{}', ' ' * max(0, self.width  - sw))
+        stext += self.sfmt('{default}{}', ' ' * max(0, self.width  - sw))
         self.put(row, 0, stext, clip_col = col, clip_width = width)
         if self.in_focus and row == 0:
             dmsg("hex window - ADD FOCUS CHAR TO THE UPDATE LIST, self: {}, focus: {}, height: {}", self, self.in_focus, self.height)
