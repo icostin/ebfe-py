@@ -186,14 +186,7 @@ class stream_edit_window (tui.window):
     '''
 
     def __init__ (self, stream_cache, stream_uri):
-        tui.window.__init__(self, styles='''
-            default
-            normal_offset negative_offset offset_item_sep
-            known_item uncached_item missing_item
-            item1_sep item2_sep item4_sep item8_sep
-            item_char_sep
-            normal_char altered_char uncached_char missing_char
-        ''')
+        tui.window.__init__(self)
         cfg = settings_manager(os.path.expanduser('~/.ebfe.ini'))
         self.stream_uri = stream_uri
         self.stream_cache = stream_cache
@@ -207,6 +200,47 @@ class stream_edit_window (tui.window):
         self.reverse_offset_slide = cfg.bget('window: hex edit', 'reverse_offset_slide', True)
         self.refresh_on_next_tick = False
         self.show_hex = True
+
+    def prepare_styles (self):
+        if self.in_focus:
+            self.set_styles('''
+                default=active_default
+                normal_offset=active_normal_offset
+                negative_offset=active_negative_offset
+                offset_item_sep=active_offset_item_sep
+                known_item=active_known_item
+                uncached_item=active_uncached_item
+                missing_item=active_missing_item
+                item1_sep=active_item1_sep
+                item2_sep=active_item2_sep
+                item4_sep=active_item4_sep
+                item8_sep=active_item8_sep
+                item_char_sep=active_item_char_sep
+                normal_char=active_normal_char
+                altered_char=active_altered_char
+                uncached_char=active_uncached_char
+                missing_char=active_missing_char
+            ''')
+        else:
+            self.set_styles('''
+                default=default
+                normal_offset=inactive_normal_offset
+                negative_offset=inactive_negative_offset
+                offset_item_sep=inactive_offset_item_sep
+                known_item=inactive_known_item
+                uncached_item=inactive_uncached_item
+                missing_item=inactive_missing_item
+                item1_sep=inactive_item1_sep
+                item2_sep=inactive_item2_sep
+                item4_sep=inactive_item4_sep
+                item8_sep=inactive_item8_sep
+                item_char_sep=inactive_item_char_sep
+                normal_char=inactive_normal_char
+                altered_char=inactive_altered_char
+                uncached_char=inactive_uncached_char
+                missing_char=inactive_missing_char
+            ''')
+
 
     def refresh_strip (self, row, col, width):
         row_offset = self.stream_offset + row * self.items_per_line
@@ -377,6 +411,11 @@ class stream_edit_window (tui.window):
         else:
             dmsg("Unknown key: {}", msg.ch)
 
+    def focus (self, *a, **b):
+        tui.window.focus(self, *a, **b)
+        self.prepare_styles()
+
+
 #* editor *******************************************************************
 class editor (tui.application):
     '''
@@ -504,21 +543,40 @@ class editor (tui.application):
             passive_title attr=normal fg=0 bg=7
             dash_title attr=bold fg=2 bg=7
             time_title attr=bold fg=4 bg=7
-            normal_offset attr=normal fg=7 bg=0
-            negative_offset attr=normal fg=8 bg=0
-            offset_item_sep attr=normal fg=6 bg=0
-            known_item attr=normal fg=7 bg=0
-            uncached_item attr=normal fg=4 bg=0
-            missing_item attr=normal fg=8 bg=0
-            item1_sep attr=normal fg=8 bg=0
-            item2_sep attr=normal fg=8 bg=0
-            item4_sep attr=normal fg=8 bg=0
-            item8_sep attr=normal fg=8 bg=0
-            item_char_sep attr=normal fg=8 bg=0
-            normal_char attr=normal fg=6 bg=0
-            altered_char attr=normal fg=8 bg=0
-            uncached_char attr=normal fg=12 bg=0
-            missing_char attr=normal fg=8 bg=0
+
+            active_default attr=normal fg=7 bg=4
+            active_normal_offset attr=normal fg=7 bg=4
+            active_negative_offset attr=normal fg=8 bg=4
+            active_offset_item_sep attr=normal fg=6 bg=4
+            active_known_item attr=normal fg=7 bg=4
+            active_uncached_item attr=normal fg=4 bg=4
+            active_missing_item attr=normal fg=8 bg=4
+            active_item1_sep attr=normal fg=8 bg=4
+            active_item2_sep attr=normal fg=8 bg=4
+            active_item4_sep attr=normal fg=8 bg=4
+            active_item8_sep attr=normal fg=8 bg=4
+            active_item_char_sep attr=normal fg=8 bg=4
+            active_normal_char attr=normal fg=6 bg=4
+            active_altered_char attr=normal fg=8 bg=4
+            active_uncached_char attr=normal fg=12 bg=4
+            active_missing_char attr=normal fg=8 bg=4
+
+            inactive_normal_offset attr=normal fg=7 bg=0
+            inactive_negative_offset attr=normal fg=8 bg=0
+            inactive_offset_item_sep attr=normal fg=6 bg=0
+            inactive_known_item attr=normal fg=7 bg=0
+            inactive_uncached_item attr=normal fg=4 bg=0
+            inactive_missing_item attr=normal fg=8 bg=0
+            inactive_item1_sep attr=normal fg=8 bg=0
+            inactive_item2_sep attr=normal fg=8 bg=0
+            inactive_item4_sep attr=normal fg=8 bg=0
+            inactive_item8_sep attr=normal fg=8 bg=0
+            inactive_item_char_sep attr=normal fg=8 bg=0
+            inactive_normal_char attr=normal fg=6 bg=0
+            inactive_altered_char attr=normal fg=8 bg=0
+            inactive_uncached_char attr=normal fg=12 bg=0
+            inactive_missing_char attr=normal fg=8 bg=0
+
             default_status_bar attr=normal fg=7 bg=4
             default_console attr=normal fg=0 bg=7
             test_focus attr=normal fg=7 bg=1
