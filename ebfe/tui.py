@@ -453,6 +453,65 @@ class window (object):
             self.in_focus = is_it
 
 
+#* cc_window ****************************************************************
+class cc_window (window):
+    '''
+    Cached-content window.
+    This window caches the content that needs displaying.
+    When refresh() or refresh_strip() is called it just
+    provides the relevant portion of the cache.
+    '''
+
+    def __init__ (self, wid = None, init_content = None, width = 0, height = 0, styles = 'default'):
+        window.__init__(self, wid, width, height, styles)
+        self.content = []
+        self.top_row = 0
+        if init_content: self.set_fmt_content(0, init_content)
+
+    def set_content (self, row, text):
+        '''updates the cached content. No need to overload this!'''
+        l = text.splitlines()
+        while row > len(self.content):
+            self.content.append('')
+        self.content[row : row + len(l)] = l
+        dmsg('got content:\n{}', '\n'.join([repr(x) for x in self.content]))
+
+    def set_fmt_content (self, row, fmt_text, *l, **kw):
+        self.set_content(row = row, text = self.sfmt(fmt_text, *l, **kw))
+
+    def scroll (self, delta, absolute = False):
+        if absolute: self.top_row = 0
+        self.top_row += delta
+
+    def tick_tock (self):
+        pass
+
+    def refresh_strip (self, row, col, width):
+        dmsg('cc_win: refresh row={} col={} width={}', row, col, width)
+        logical_row = self.top_row + row
+        if logical_row >= 0 and logical_row < len(self.content):
+            txt = self.content[logical_row]
+        else:
+            txt = ''
+        dmsg('cc_win: refresh_strip with {!r}', txt)
+        w = compute_styled_text_width(txt)
+        if w < self.width: txt += self.sfmt(' ' * (self.width - w))
+        self.put(row, 0, txt, clip_col = col, clip_width = width)
+
+    def regenerate_content (self):
+        '''
+        Overload this if reflowing text is needed
+        '''
+        pass
+
+    def resize (self, width, height):
+        self.width = width
+        self.height = height
+        self.regenerate_content()
+        self.refresh()
+# end cc_window
+
+#* application **************************************************************
 class application (window):
     '''
     Represents a Text UI application.
