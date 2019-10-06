@@ -756,6 +756,7 @@ class editor (tui.application):
             dmsg('dropping panel')
             if self.panel.in_focus:
                 self.focus_next()
+            self.win_focus_list.remove(self.panel)
             self.panel = None
         self.resize(self.width, self.height)
 
