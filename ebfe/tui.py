@@ -107,7 +107,7 @@ class driver (object):
         '''
         return message('quit')
 
-    
+
     def render (self, updates):
         '''
         Goes through all update strips and renders them.
@@ -151,8 +151,8 @@ class strip (zlx.record.Record):
     '''
 
 #* make_style ***************************************************************
-def make_style (caps, 
-        fg = None, bg = None, attr = A_NORMAL, 
+def make_style (caps,
+        fg = None, bg = None, attr = A_NORMAL,
         fg256 = None, bg256 = None, attr256 = None):
     '''
     creates a style object that fits within the given caps
@@ -273,8 +273,14 @@ class window (object):
     - resize() - if the window has children or custom fields need adjusting
     '''
 
-    def __init__ (self, width = 0, height = 0, styles = 'default', can_have_focus = False, show = True):
+    wid_seed = 0
+
+    def __init__ (self, wid = None, width = 0, height = 0, styles = 'default', can_have_focus = False, show = True):
         object.__init__(self)
+        if wid is None:
+            wid = '{}_{}'.format(self.__class__.__name__, self.__class__.wid_seed)
+            self.__class__.wid_seed += 1
+        self.wid = wid
         self.width = width
         self.height = height
         self.can_have_focus = can_have_focus
@@ -284,6 +290,9 @@ class window (object):
         self.render_starting_column = 0
         self.wipe_updates()
         self.set_styles(styles)
+
+    def __repr__ (self):
+        return self.wid
 
     def set_styles (self, styles):
         self.style_markers = generate_style_markers(styles + ' test_focus')
@@ -357,7 +366,7 @@ class window (object):
         This should ideally not do blocking operations as for good UX it must
         be fast.
         '''
-        txt = ('.' if row else '-') * (self.width // 2) + '+' 
+        txt = ('.' if row else '-') * (self.width // 2) + '+'
         txt += txt[0] * (self.width - self.width // 2)
         self.write(row, col, 'default', txt[col:col + width])
 
@@ -392,11 +401,19 @@ class window (object):
     def resize (self, width, height):
         '''
         Updates window size and refreshes whole content.
-        Overload this if the window has children or addition state needs to
-        be adjusted
+        Do not overload this. If you need to adjust internal layout following
+        a resize please overload adjust_to_size()
         '''
-        self.width = width
-        self.height = height
+        self.width = max(0, width)
+        self.height = max(0, height)
+        dmsg('win:{!r} resize to {}x{}', self, self.width, self.height)
+        if self.width > 0 and self.height > 0:
+            self.adjust_to_size(self.width, self.height)
+
+    def adjust_to_size (self, width, height):
+        '''
+        Overload this if you need more than just a refresh of the content
+        '''
         self.refresh()
 
     def handle (self, msg):
@@ -439,7 +456,7 @@ class window (object):
 class application (window):
     '''
     Represents a Text UI application.
-    This class represents the root window of the app plus a way of 
+    This class represents the root window of the app plus a way of
     describing the styles that are used when displaying text
     Derive to taste.
     Recommended overloads:

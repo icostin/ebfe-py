@@ -80,7 +80,8 @@ class title_bar (tui.window):
     Title bar
     '''
     def __init__ (self, title = ''):
-        tui.window.__init__(self, title,
+        tui.window.__init__(self,
+            wid = 'title_bar',
             styles = '''
             passive_title
             normal_title
@@ -126,7 +127,8 @@ class status_bar (tui.window):
     Status bar
     '''
     def __init__ (self, title = ''):
-        tui.window.__init__(self, title,
+        tui.window.__init__(self,
+            wid = 'status_bar',
             styles = '''
             default_status_bar
             '''
@@ -135,7 +137,7 @@ class status_bar (tui.window):
         self.tick = 0
 
     def refresh_strip (self, row, col, width):
-        stext = self.sfmt('{default_status_bar}Test:{}', ' ' * (self.width - 5))
+        stext = self.sfmt('{default_status_bar}Status bar | Test:{}', ' ' * (self.width - 5))
         self.put(0, 0, stext, clip_col = col, clip_width = width)
 
 #* job details **************************************************************
@@ -145,6 +147,7 @@ class processing_details (tui.window):
     '''
     def __init__ (self):
         tui.window.__init__(self,
+            wid = 'processing_details_win',
             styles = '''
             default_status_bar
             '''
@@ -166,6 +169,7 @@ class console (tui.window):
     '''
     def __init__ (self):
         tui.window.__init__(self,
+            wid = 'console',
             styles = '''
             default_console
             '''
@@ -373,7 +377,7 @@ class stream_edit_window (tui.window):
             self.show_hex = True
             self.items_per_line = self.prev_items_per_line
         self.refresh()
-    
+
     def jump_to_end (self):
         n = self.items_per_line
         end_offset = self.stream_cache.get_known_end_offset()
@@ -433,10 +437,12 @@ class editor (tui.application):
         self.job_details = processing_details()
         #self.job_details.can_have_focus = True
         self.job_details.show = False
-        
+
         self.console = console()
         self.console.can_have_focus = True
         self.console.show = False
+
+        self.panel = None
 
         self.mode = 'normal' # like vim normal mode
 
@@ -466,7 +472,7 @@ class editor (tui.application):
         self.focus_index = 0                            # it won't change focus if window is not visible anyways
         self.old_focus_index = self.focus_index         # init the old as well
         self.focus_to(self.active_stream_win)
-        
+
         self.status_bar = status_bar('EBFE Binary File Editor')
 
     def focus_next (self):
@@ -583,44 +589,52 @@ class editor (tui.application):
             ''')
         return sm
 
-    def resize (self, width, height):
+    def adjust_to_size (self, width, height):
         h = 0
         self.width = width
         self.height = height
 
-        if width > 0 and height > 0: 
-            self.title_bar.resize(width, 1)
-            self.title_bar.render_starting_line = 0
+        if width <= 0 or height <= 0: return
+
+        self.title_bar.resize(width, 1)
+        self.title_bar.render_starting_line = 0
+        h += 1
+
+        if self.job_details.show and height > self.job_details.lines_to_display + h:
+            self.job_details.resize(width, self.job_details.lines_to_display)
+            self.job_details.render_starting_line = 1
+            h += self.job_details.lines_to_display
+        else:
+            self.job_details.resize(width, 0)
+            self.job_details.render_starting_line = -1
+
+        if height > h:
+            self.status_bar.resize(width, 1)
+            self.status_bar.render_starting_line = height - 1
             h += 1
-            
-            if self.job_details.show and height > self.job_details.lines_to_display + h:
-                self.job_details.resize(width, self.job_details.lines_to_display)
-                self.job_details.render_starting_line = 1
-                h += self.job_details.lines_to_display
+
+        if self.console.show and height > h:
+            self.console.resize(width, self.console.lines_to_display)
+            self.console.render_starting_line = height - (1 + self.console.lines_to_display)
+            h += self.console.lines_to_display
+        else:
+            self.console.resize(width, 0)
+            self.console.render_starting_line = -1
+
+        if self.active_stream_win and width > 0 and height > h:
+            if self.job_details.show:
+                self.active_stream_win.render_starting_line = self.job_details.lines_to_display + 1
             else:
-                self.job_details.resize(width, 0)
-                self.job_details.render_starting_line = -1
-
-            if height > h:
-                self.status_bar.resize(width, 1)
-                self.status_bar.render_starting_line = height - 1
-                h += 1
-            
-            if self.console.show and height > h:
-                self.console.resize(width, self.console.lines_to_display)
-                self.console.render_starting_line = height - (1 + self.console.lines_to_display)
-                h += self.console.lines_to_display
+                self.active_stream_win.render_starting_line = 1     # just the title bar
+            h = self.height - self.active_stream_win.render_starting_line - 1
+            if self.panel:
+                panel_width = min(60, self.width // 3)
+                dmsg('adjusting with panel: panel_width', panel_width)
+                self.panel.resize(panel_width, h)
+                self.active_stream_win.resize(self.width - panel_width, h)
             else:
-                self.console.resize(width, 0)
-                self.console.render_starting_line = -1
-
-            if self.active_stream_win and width > 0 and height > h:
-                self.active_stream_win.resize(width, height - h)
-                if self.job_details.show:
-                    self.active_stream_win.render_starting_line = self.job_details.lines_to_display + 1
-                else:
-                    self.active_stream_win.render_starting_line = 1     # just the title bar
-
+                dmsg('adjusting without panel')
+                self.active_stream_win.resize(self.width, h)
         self.refresh()
 
     def refresh_strip (self, row, col, width):
@@ -628,36 +642,47 @@ class editor (tui.application):
         if  row == 0:
             self.title_bar.refresh_strip(0, col, width)
             self.integrate_updates(0, 0, self.title_bar.fetch_updates())
+            return
         # processing details
-        elif (self.job_details.show 
-                and row >= self.job_details.render_starting_line 
+        if (self.job_details.show
+                and row >= self.job_details.render_starting_line
                 and row < self.job_details.render_starting_line + self.job_details.height
             ):
             self.job_details.refresh_strip(row - self.job_details.render_starting_line, col, width)
             self.integrate_updates(self.job_details.render_starting_line, 0, self.job_details.fetch_updates())
+            return
         # hex edit with processing details active
-        elif (row >= self.active_stream_win.render_starting_line 
-                and row < self.active_stream_win.render_starting_line + self.active_stream_win.height 
-                and self.active_stream_win
-                ):
-            self.active_stream_win.refresh_strip(row - self.active_stream_win.render_starting_line, col, width)
-            self.integrate_updates(self.active_stream_win.render_starting_line, 0, self.active_stream_win.fetch_updates())
+        if (self.active_stream_win
+            and row >= self.active_stream_win.render_starting_line
+            and row < self.active_stream_win.render_starting_line + self.active_stream_win.height ):
+            if col < self.active_stream_win.width:
+                dmsg('refreshing active_stream_win row={}', row)
+                self.active_stream_win.refresh_strip(row - self.active_stream_win.render_starting_line, col, min(self.active_stream_win.width - col, width))
+                self.integrate_updates(self.active_stream_win.render_starting_line, 0, self.active_stream_win.fetch_updates())
+            if (self.panel and row >= self.active_stream_win.render_starting_line
+                and row < self.active_stream_win.render_starting_line + self.panel.height
+                and col + width > self.active_stream_win.width):
+                dmsg('refreshing panel row={}', row)
+                self.panel.refresh_strip(row - self.active_stream_win.render_starting_line, max(col, self.active_stream_win.width) - self.active_stream_win.width, col + width - self.active_stream_win.width)
+                self.integrate_updates(self.active_stream_win.render_starting_line, self.active_stream_win.width, self.panel.fetch_updates())
+            return
         # console
-        elif (self.console.show 
-                and row >= self.console.render_starting_line 
+        if (self.console.show
+                and row >= self.console.render_starting_line
                 and row < self.console.render_starting_line + self.console.height
             ):
             self.console.refresh_strip(row - self.console.render_starting_line, col, width)
             self.integrate_updates(self.console.render_starting_line, 0, self.console.fetch_updates())
+            return
         # status bar
-        elif (row >= self.status_bar.render_starting_line 
+        if (row >= self.status_bar.render_starting_line
                 and row < self.status_bar.render_starting_line + self.status_bar.height
                 ):
             self.status_bar.refresh_strip(row - self.status_bar.render_starting_line, col, width)
             self.integrate_updates(self.status_bar.render_starting_line, 0, self.status_bar.fetch_updates())
+            return
         # anything else ?!? Fill in with the -----+------
-        else:
-            tui.application.refresh_strip(self, row, col, width)
+        tui.application.refresh_strip(self, row, col, width)
 
     def handle_timeout (self, msg):
         self.title_bar.handle_timeout(msg)
@@ -673,13 +698,24 @@ class editor (tui.application):
             getattr(self.active_stream_win, func)(*l, **kw)
             self.integrate_updates(1 + self.job_details.height, 0, self.active_stream_win.fetch_updates())
 
+    def toggle_panel (self):
+        if self.panel is None:
+            dmsg('creating panel')
+            self.panel = tui.window(wid = 'panel')
+        else:
+            dmsg('dropping panel')
+            self.panel = None
+        self.resize(self.width, self.height)
+
     def quit (self):
         self.server.shutdown()
         raise tui.app_quit(0)
 
     def handle_keystate (self, msg):
+        dmsg('editor: handle key: {!r}', msg.ch)
         if msg.ch[1] in ('q', 'Q', 'ESC'): self.quit()
         elif msg.ch[1] in ('\t',): self.focus_next() # Ctrl-TAB
+        elif msg.ch[1] in ('KEY_F(1)',): self.toggle_panel()
         elif msg.ch[1] in ('w',):
             if self.job_details.show:
                 self.job_details.show = False
