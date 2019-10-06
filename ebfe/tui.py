@@ -250,12 +250,15 @@ def compute_styled_text_width (styled_text):
 def generate_style_markers (styles_desc):
     m = {}
     dflt = None
+    dflt_value = None
     for s in styles_desc.split():
         if '=' in s: a, b = s.split('=', 1)
         else: a, b = s, s
-        if not dflt: dflt = a
+        if not dflt:
+            dflt = a
+            dflt_value = b
         m[a] = ''.join((STYLE_BEGIN, b, STYLE_END))
-    m[''] = m[dflt]
+    m[None] = dflt_value
     return m
 
 #* window *******************************************************************
@@ -284,6 +287,7 @@ class window (object):
 
     def set_styles (self, styles):
         self.style_markers = generate_style_markers(styles + ' test_focus')
+        self.default_style_name = self.style_markers[None]
 
     def wipe_updates (self):
         '''
@@ -335,7 +339,7 @@ class window (object):
 
     def put (self, row, col, styled_text, clip_col = 0, clip_width = None):
         dmsg("************* put self: {}, row: {}, col: {}, clip_col: {}, clip_width: {}", self, row, col, clip_col, clip_width)
-        for style, text in styled_text_chunks(styled_text, ''):
+        for style, text in styled_text_chunks(styled_text, self.default_style_name):
             self.write(row, col, style, text, clip_col, clip_width)
             col += compute_text_width(text)
 
