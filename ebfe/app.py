@@ -172,7 +172,8 @@ class console (tui.window):
             wid = 'console',
             styles = '''
             default_console
-            '''
+            ''',
+            can_have_focus = True
         )
         self.lines_to_display = 8
 
@@ -419,6 +420,41 @@ class stream_edit_window (tui.window):
         tui.window.focus(self, *a, **b)
         self.prepare_styles()
 
+#* help_window **************************************************************
+class help_window (tui.cc_window):
+    def __init__ (self):
+        dmsg('help_win')
+        tui.cc_window.__init__(self,
+            init_content = '''
+{heading}EBFE - Help
+
+  Welcome to {stress}EBFE{normal}!
+            '''.strip())
+        self.can_have_focus = True
+        self.in_focus = False
+        self.prepare_styles()
+
+    def focus (self, *a, **b):
+        tui.window.focus(self, *a, **b)
+        self.prepare_styles()
+
+    def prepare_styles (self):
+        if self.in_focus:
+            self.set_styles('''
+            normal=active_help_normal
+            stress=active_help_stress
+            key=active_help_key
+            heading=active_help_heading
+            topic=active_help_topic
+            ''')
+        else:
+            self.set_styles('''
+            normal=inactive_help_normal
+            stress=inactive_help_stress
+            key=inactive_help_key
+            heading=inactive_help_heading
+            topic=inactive_help_topic
+            ''')
 
 #* editor *******************************************************************
 class editor (tui.application):
@@ -586,6 +622,18 @@ class editor (tui.application):
             default_status_bar attr=normal fg=7 bg=4
             default_console attr=normal fg=0 bg=7
             test_focus attr=normal fg=7 bg=1
+
+            active_help_normal attr=normal fg=7 bg=6
+            active_help_stress attr=normal fg=11 bg=6
+            active_help_key attr=normal fg=10 bg=6
+            active_help_heading attr=normal fg=15 bg=6
+            active_help_topic attr=normal fg=5 bg=6
+
+            inactive_help_normal attr=normal fg=7 bg=0
+            inactive_help_stress attr=normal fg=11 bg=0
+            inactive_help_key attr=normal fg=10 bg=0
+            inactive_help_heading attr=normal fg=15 bg=0
+            inactive_help_topic attr=normal fg=5 bg=0
             ''')
         return sm
 
@@ -626,15 +674,15 @@ class editor (tui.application):
                 self.active_stream_win.render_starting_line = self.job_details.lines_to_display + 1
             else:
                 self.active_stream_win.render_starting_line = 1     # just the title bar
-            h = self.height - self.active_stream_win.render_starting_line - 1
+            mh = self.height - h
             if self.panel:
                 panel_width = min(60, self.width // 3)
                 dmsg('adjusting with panel: panel_width', panel_width)
-                self.panel.resize(panel_width, h)
-                self.active_stream_win.resize(self.width - panel_width, h)
+                self.panel.resize(panel_width, mh)
+                self.active_stream_win.resize(self.width - panel_width, mh)
             else:
                 dmsg('adjusting without panel')
-                self.active_stream_win.resize(self.width, h)
+                self.active_stream_win.resize(self.width, mh)
         self.refresh()
 
     def refresh_strip (self, row, col, width):
@@ -701,9 +749,13 @@ class editor (tui.application):
     def toggle_panel (self):
         if self.panel is None:
             dmsg('creating panel')
-            self.panel = tui.window(wid = 'panel')
+            self.panel = help_window()#tui.window(wid = 'panel')
+            self.win_focus_list.append(self.panel)
+            self.focus_to(self.panel)
         else:
             dmsg('dropping panel')
+            if self.panel.in_focus:
+                self.focus_next()
             self.panel = None
         self.resize(self.width, self.height)
 

@@ -466,7 +466,7 @@ class cc_window (window):
         window.__init__(self, wid, width, height, styles)
         self.content = []
         self.top_row = 0
-        if init_content: self.set_fmt_content(0, init_content)
+        if init_content: self.set_content(0, init_content)
 
     def set_content (self, row, text):
         '''updates the cached content. No need to overload this!'''
@@ -475,9 +475,6 @@ class cc_window (window):
             self.content.append('')
         self.content[row : row + len(l)] = l
         dmsg('got content:\n{}', '\n'.join([repr(x) for x in self.content]))
-
-    def set_fmt_content (self, row, fmt_text, *l, **kw):
-        self.set_content(row = row, text = self.sfmt(fmt_text, *l, **kw))
 
     def scroll (self, delta, absolute = False):
         if absolute: self.top_row = 0
@@ -490,7 +487,7 @@ class cc_window (window):
         dmsg('cc_win: refresh row={} col={} width={}', row, col, width)
         logical_row = self.top_row + row
         if logical_row >= 0 and logical_row < len(self.content):
-            txt = self.content[logical_row]
+            txt = self.sfmt(self.content[logical_row])
         else:
             txt = ''
         dmsg('cc_win: refresh_strip with {!r}', txt)
