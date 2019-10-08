@@ -404,8 +404,8 @@ class stream_edit_window (tui.window):
         elif msg.ch[1] in ('k', 'K'): self.vmove(-1)
         elif msg.ch[1] in ('g',): self.jump_to_begin()
         elif msg.ch[1] in ('G',): self.jump_to_end()
-        elif msg.ch[1] in ('<',): self.shift_offset(-1)
-        elif msg.ch[1] in ('>',): self.shift_offset(+1)
+        elif msg.ch[1] in ('<', 'h'): self.shift_offset(-1)
+        elif msg.ch[1] in ('>', 'l'): self.shift_offset(+1)
         elif msg.ch[1] in ('_',): self.adjust_items_per_line(-1)
         elif msg.ch[1] in ('+',): self.adjust_items_per_line(+1)
         elif msg.ch[1] in ('\n',): self.cycle_modes()
@@ -619,7 +619,7 @@ class editor (tui.application):
             inactive_uncached_char attr=normal fg=12 bg=0
             inactive_missing_char attr=normal fg=8 bg=0
 
-            default_status_bar attr=normal fg=7 bg=4
+            default_status_bar attr=normal fg=0 bg=7
             default_console attr=normal fg=0 bg=7
             test_focus attr=normal fg=7 bg=1
 
