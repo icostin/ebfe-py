@@ -4,14 +4,19 @@ from collections import namedtuple
 import zlx.record
 from zlx.io import dmsg
 
-class error (RuntimeError):
-    pass
+def saturate (x, min_value, max_value):
+    return max(min(x, max_value), min_value)
 
+#* error ********************************************************************
+class error (RuntimeError):
+    def __init__ (self, fmt, *a, **b):
+        RuntimeError.__init__(self, fmt.format(*a, **b))
+
+#* app_quit *****************************************************************
 class app_quit (error):
     def __init__ (self, ret_code = 0):
         error.__init__(self, 'quit tui app')
         self.ret_code = ret_code
-    pass
 
 # attributes to be used in style (:-D all puns intended)
 A_NORMAL = 0
@@ -278,8 +283,8 @@ class window (object):
     def __init__ (self, wid = None, width = 0, height = 0, styles = 'default', can_have_focus = False, show = True):
         object.__init__(self)
         if wid is None:
-            wid = '{}_{}'.format(self.__class__.__name__, self.__class__.wid_seed)
-            self.__class__.wid_seed += 1
+            wid = '{}_{}'.format(self.__class__.__name__, window.wid_seed)
+            window.wid_seed += 1
         self.wid = wid
         self.width = width
         self.height = height
@@ -462,25 +467,124 @@ class container (window):
 
     HORIZONTAL = 0
     VERTICAL = 1
-    item = zlx.record.make('container.item', 'window weight min_size max_size concealed')
+    item = zlx.record.make('container.item', 'window weight min_size max_size concealed pos size')
 
-    def __init__ (self, wid = None, direction = VERTICAL):
+    def __init__ (self, direction = VERTICAL, wid = None):
         window.__init__(self, wid = wid)
+        assert direction in (container.HORIZONTAL, container.VERTICAL)
         self.direction = direction
         self.items = []
         self.focused_item_index = None
 
     def add (self, win, index = None, weight = 1, min_size = 1, max_size = 65535, concealed = False):
+        assert weight > 0
+        assert min_size <= max_size
         item = container.item(win, weight, min_size, max_size, concealed)
+        dmsg('{!r}.add({!r})', self, item)
         if index is None: index = len(self.items)
         self.items.insert(index, item)
         if self.focused_item_index is not None and index <= self.focused_item_index:
             self.focused_item_index += 1
-        self.refresh()
+        self.resize()
+        return
+
+    def is_horizontal (self):
+        return self.direction == container.HORIZONTAL
+
+    def is_vertical (self):
+        return self.direction == container.VERTICAL
+
+    def _forget_item_locations (self):
+        for item in self.items:
+            item.pos = 0
+            item.size = 0
+
+    def _compute_weight_of_unsized_items (self):
+        weight = 0
+        for item in self.items:
+            if item.concealed: continue
+            weight += item.weight
+        return weight
+
+    def _compute_min_size (self):
+        min_size = 0
+        for item in self.items:
+            if item.concealed: continue
+            min_size += item.min_size
+        return min_size
+
+    def _compute_position_of_items (self):
+        pos = 0
+        for item in self.items:
+            item.pos = pos
+            pos += item.size
+
+    def get_focused_item (self):
+        if self.focused_item_index is None: return None
+        assert self.focused_item_index < len(self.items)
+        assert not self.items[self.focused_item_index].concealed
+        return self.items[self.focused_item_index]
+
+    def size_to_weight_height (self, size):
+        if self.direction == container.HORIZONTAL: return (size, self.height)
+        elif self.direction == container.VERTICAL: return (self.width, size)
+        else: raise error('bad dir: {}', self.direction)
+
+    def on_resize (self, width, height):
+        if self.direction == container.HORIZONTAL: size = width
+        elif self.direction == container.VERTICAL: size = height
+        else: raise error('bad dir: {}', self.direction)
+
+        self._forget_item_locations()
+        min_size = self._compute_min_size()
+        dmsg('container resize({}x{}): min_size={} size={}',
+                width, height, min_size, size)
+        if size < min_size:
+            focused_item = self.get_focused_item()
+            if focused_item:
+                focused_item.size = min(size, focused_item.max_size)
+
+        items_to_place = [item for item in self.items if not item.concealed]
+        items_to_place.sort(key = lambda item: item.max_size - item.min_size, reverse = True)
+
+        total_weight = self._compute_weight_of_unsized_items()
+        for item in items_to_place:
+            item.size = saturate(round(size * item.weight / total_weight), item.min_size, item.max_size)
+            size -= item.size
+            total_weight -= item.weight
+        
+        self._compute_position_of_items()
+
+        for item in self.items:
+            if item.concealed: continue
+            item.window.resize(*self.size_to_weight_height(item.size))
+        return
+
+    def _locate_item (self, pos):
+        for i in range(len(self.items)):
+            item = self.items[i]
+            if pos >= item.pos and pos - item.pos < item.size:
+                return (item, i)
+        return (None, None)
 
     def refresh_strip (self, row, col, width):
-        window.refresh_strip(row, col, width)
+        if self.is_vertical():
+            item, idx = self._locate_item(row)
+            if item:
+                item.window.refresh_strip(row - item.pos, col, width)
+                u = item.window.fetch_updates()
+                self.integrate_updates(item.pos, 0, u)
+                return
+        if self.is_horizontal():
+            raise error("todo")
+        window.refresh_strip(self, row, col, width)
+        return
 
+def vcontainer (**b):
+    return container(direction = container.VERTICAL, **b)
+
+def hcontainer (**b):
+    return container(direction = container.HORIZONTAL, **b)
 
 #* cc_window ****************************************************************
 class cc_window (window):

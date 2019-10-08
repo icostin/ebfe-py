@@ -749,7 +749,9 @@ class editor (tui.application):
     def toggle_panel (self):
         if self.panel is None:
             dmsg('creating panel')
-            self.panel = help_window()#tui.window(wid = 'panel')
+            vc = tui.vcontainer()
+            self.panel = vc
+            vc.add(help_window())
             self.win_focus_list.append(self.panel)
             self.focus_to(self.panel)
         else:
