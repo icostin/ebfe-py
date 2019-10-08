@@ -637,7 +637,7 @@ class editor (tui.application):
             ''')
         return sm
 
-    def adjust_to_size (self, width, height):
+    def on_resize (self, width, height):
         h = 0
         self.width = width
         self.height = height

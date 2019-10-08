@@ -398,19 +398,21 @@ class window (object):
         for r in range(start_row, end_row):
             self.refresh_strip(r, start_col, width)
 
-    def resize (self, width, height):
+    def resize (self, width = None, height = None):
         '''
         Updates window size and refreshes whole content.
         Do not overload this. If you need to adjust internal layout following
-        a resize please overload adjust_to_size()
+        a resize please overload on_resize()
         '''
+        if width is None: width = self.width
+        if height is None: height = self.height
         self.width = max(0, width)
         self.height = max(0, height)
         dmsg('win:{!r} resize to {}x{}', self, self.width, self.height)
         if self.width > 0 and self.height > 0:
-            self.adjust_to_size(self.width, self.height)
+            self.on_resize(self.width, self.height)
 
-    def adjust_to_size (self, width, height):
+    def on_resize (self, width, height):
         '''
         Overload this if you need more than just a refresh of the content
         '''
@@ -451,6 +453,33 @@ class window (object):
             self.in_focus = is_it
         elif self.can_have_focus and self.show:
             self.in_focus = is_it
+
+#* container ****************************************************************
+class container (window):
+    '''
+    Container for storing multiple windows on a direction (h/v).
+    '''
+
+    HORIZONTAL = 0
+    VERTICAL = 1
+    item = zlx.record.make('container.item', 'window weight min_size max_size concealed')
+
+    def __init__ (self, wid = None, direction = VERTICAL):
+        window.__init__(self, wid = wid)
+        self.direction = direction
+        self.items = []
+        self.focused_item_index = None
+
+    def add (self, win, index = None, weight = 1, min_size = 1, max_size = 65535, concealed = False):
+        item = container.item(win, weight, min_size, max_size, concealed)
+        if index is None: index = len(self.items)
+        self.items.insert(index, item)
+        if self.focused_item_index is not None and index <= self.focused_item_index:
+            self.focused_item_index += 1
+        self.refresh()
+
+    def refresh_strip (self, row, col, width):
+        window.refresh_strip(row, col, width)
 
 
 #* cc_window ****************************************************************
@@ -501,11 +530,10 @@ class cc_window (window):
         '''
         pass
 
-    def resize (self, width, height):
-        self.width = width
-        self.height = height
+    def on_resize (self, width, height):
         self.regenerate_content()
         self.refresh()
+
 # end cc_window
 
 #* application **************************************************************
