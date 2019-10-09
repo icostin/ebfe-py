@@ -416,8 +416,7 @@ class stream_edit_window (tui.window):
         else:
             dmsg("Unknown key: {}", msg.ch)
 
-    def focus (self, *a, **b):
-        tui.window.focus(self, *a, **b)
+    def on_focus_change (self):
         self.prepare_styles()
 
 #* help_window **************************************************************
@@ -431,29 +430,28 @@ class help_window (tui.cc_window):
   Welcome to {stress}EBFE{normal}!
             '''.strip())
         self.can_have_focus = True
-        self.in_focus = False
         self.prepare_styles()
 
-    def focus (self, *a, **b):
-        tui.window.focus(self, *a, **b)
+    def on_focus_change (self):
         self.prepare_styles()
+        self.refresh()
 
     def prepare_styles (self):
         if self.in_focus:
             self.set_styles('''
-            normal=active_help_normal
-            stress=active_help_stress
-            key=active_help_key
-            heading=active_help_heading
-            topic=active_help_topic
+                normal=active_help_normal
+                stress=active_help_stress
+                key=active_help_key
+                heading=active_help_heading
+                topic=active_help_topic
             ''')
         else:
             self.set_styles('''
-            normal=inactive_help_normal
-            stress=inactive_help_stress
-            key=inactive_help_key
-            heading=inactive_help_heading
-            topic=inactive_help_topic
+                normal=inactive_help_normal
+                stress=inactive_help_stress
+                key=inactive_help_key
+                heading=inactive_help_heading
+                topic=inactive_help_topic
             ''')
 
 #* editor *******************************************************************
@@ -514,6 +512,11 @@ class editor (tui.application):
     def focus_next (self):
         index = self.focus_index
         s = len(self.win_focus_list)
+        if index < s and isinstance(self.win_focus_list[index], tui.container):
+            if self.win_focus_list[index].cycle_focus(): 
+                self.integrate_updates(self.active_stream_win.render_starting_line,
+                    self.active_stream_win.width, self.win_focus_list[index].fetch_updates())
+                return
         for i in range(s):
             index += 1
             if index >= s:
@@ -751,7 +754,10 @@ class editor (tui.application):
             dmsg('creating panel')
             vc = tui.vcontainer()
             self.panel = vc
-            vc.add(help_window())
+            vc.add(tui.window(), max_size = 1)
+            vc.add(help_window(), weight = 5)
+            vc.add(tui.window(), max_size = 10)
+            vc.add(help_window(), weight = 5)
             self.win_focus_list.append(self.panel)
             self.focus_to(self.panel)
         else:

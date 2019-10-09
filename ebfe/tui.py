@@ -299,6 +299,9 @@ class window (object):
     def __repr__ (self):
         return self.wid
 
+    def tick_tock (self):
+        pass
+
     def set_styles (self, styles):
         self.style_markers = generate_style_markers(styles + ' test_focus')
         self.default_style_name = self.style_markers[None]
@@ -448,16 +451,37 @@ class window (object):
         self.wipe_updates()
         return u
 
+    def is_focusable (self):
+        return self.can_have_focus
+
+    def set_focusable (self, focusable = True):
+        self.can_have_focus = focusable
+        return
+
     def focus (self, is_it = True):
         '''
         It can switch from being in focus to out of focus
         if the focusing mechanism is enabled (disabled by default)
         It will always be able to switch out of focus!
         '''
-        if not is_it:
-            self.in_focus = is_it
-        elif self.can_have_focus and self.show:
-            self.in_focus = is_it
+        new_focus_state = is_it and self.can_have_focus and self.show
+        if self.in_focus == new_focus_state: return
+        dmsg('{!r}.focus = {}', self, new_focus_state)
+        self.in_focus = new_focus_state
+        self.on_focus_change()
+
+    def on_focus_change (self):
+        if self.in_focus:
+            self.on_focus_enter()
+        else:
+            self.on_focus_leave()
+
+    def on_focus_enter (self):
+        return
+
+    def on_focus_leave (self):
+        return
+
 
 #* container ****************************************************************
 class container (window):
@@ -470,7 +494,7 @@ class container (window):
     item = zlx.record.make('container.item', 'window weight min_size max_size concealed pos size')
 
     def __init__ (self, direction = VERTICAL, wid = None):
-        window.__init__(self, wid = wid)
+        window.__init__(self, wid = wid, can_have_focus = True)
         assert direction in (container.HORIZONTAL, container.VERTICAL)
         self.direction = direction
         self.items = []
@@ -519,11 +543,48 @@ class container (window):
             item.pos = pos
             pos += item.size
 
+    def is_focusable (self):
+        if not self.can_have_focus: return False
+        for item in self.items:
+            if item.is_focusable(): return True
+
     def get_focused_item (self):
         if self.focused_item_index is None: return None
         assert self.focused_item_index < len(self.items)
         assert not self.items[self.focused_item_index].concealed
         return self.items[self.focused_item_index]
+
+    def on_focus_leave (self):
+        if self.focused_item_index is not None:
+            self.items[self.focused_item_index].window.focus(False)
+
+    def on_focus_enter (self):
+        if self.focused_item_index is not None and not self.items[self.focused_item_index].window.is_focusable():
+            self.focused_item_index = None
+        self.cycle_focus()
+
+    def get_item_row_col (self, item):
+        if self.is_vertical(): return (item.pos, 0)
+        elif self.is_horizontal(): return (0, item.pos)
+
+    def cycle_focus (self, forward = True):
+        if self.focused_item_index is not None:
+            item = self.items[self.focused_item_index]
+            item.window.focus(False)
+            self.integrate_updates(*self.get_item_row_col(item), item.window.fetch_updates())
+            dmsg('{!r} - remove focus for {!r}', self, item)
+        n = len(self.items)
+        s = (self.focused_item_index or -1) + 1
+        for i in range(s, n):
+            item = self.items[i]
+            if item.window.is_focusable():
+                self.focused_item_index = i
+                dmsg('{!r} - set focus for {!r}', self, item)
+                item.window.focus(True)
+                self.integrate_updates(*self.get_item_row_col(item), item.window.fetch_updates())
+                return True
+        self.focused_item_index = None
+        return False
 
     def size_to_weight_height (self, size):
         if self.direction == container.HORIZONTAL: return (size, self.height)
@@ -613,8 +674,6 @@ class cc_window (window):
         if absolute: self.top_row = 0
         self.top_row += delta
 
-    def tick_tock (self):
-        pass
 
     def refresh_strip (self, row, col, width):
         dmsg('cc_win: refresh row={} col={} width={}', row, col, width)
