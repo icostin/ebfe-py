@@ -43,12 +43,6 @@ screen_size = namedtuple('screen_size', 'width height'.split())
 
 style_caps = namedtuple('style_caps', 'attr fg_count bg_count fg_default bg_default'.split())
 
-def ranges_intersect (a, b, c, d):
-    '''
-    Returns true if and only if [a, b) intersects with [c, d)
-    '''
-    return c < b and d > a
-
 #* message ******************************************************************
 class message (object):
     '''
@@ -493,6 +487,7 @@ class container (window):
     VERTICAL = 1
     item = zlx.record.make('container.item', 'window weight min_size max_size concealed pos size')
 
+# class container
     def __init__ (self, direction = VERTICAL, wid = None):
         window.__init__(self, wid = wid, can_have_focus = True)
         assert direction in (container.HORIZONTAL, container.VERTICAL)
@@ -500,6 +495,7 @@ class container (window):
         self.items = []
         self.focused_item_index = None
 
+# class container
     def add (self, win, index = None, weight = 1, min_size = 1, max_size = 65535, concealed = False):
         assert weight > 0
         assert min_size <= max_size
@@ -512,17 +508,21 @@ class container (window):
         self.resize()
         return
 
+# class container
     def is_horizontal (self):
         return self.direction == container.HORIZONTAL
 
+# class container
     def is_vertical (self):
         return self.direction == container.VERTICAL
 
+# class container
     def _forget_item_locations (self):
         for item in self.items:
             item.pos = 0
             item.size = 0
 
+# class container
     def _compute_weight_of_unsized_items (self):
         weight = 0
         for item in self.items:
@@ -530,6 +530,7 @@ class container (window):
             weight += item.weight
         return weight
 
+# class container
     def _compute_min_size (self):
         min_size = 0
         for item in self.items:
@@ -537,36 +538,43 @@ class container (window):
             min_size += item.min_size
         return min_size
 
+# class container
     def _compute_position_of_items (self):
         pos = 0
         for item in self.items:
             item.pos = pos
             pos += item.size
 
+# class container
     def is_focusable (self):
         if not self.can_have_focus: return False
         for item in self.items:
             if item.is_focusable(): return True
 
+# class container
     def get_focused_item (self):
         if self.focused_item_index is None: return None
         assert self.focused_item_index < len(self.items)
         assert not self.items[self.focused_item_index].concealed
         return self.items[self.focused_item_index]
 
+# class container
     def on_focus_leave (self):
         if self.focused_item_index is not None:
             self.items[self.focused_item_index].window.focus(False)
 
+# class container
     def on_focus_enter (self):
         if self.focused_item_index is not None and not self.items[self.focused_item_index].window.is_focusable():
             self.focused_item_index = None
         self.cycle_focus()
 
+# class container
     def get_item_row_col (self, item):
         if self.is_vertical(): return (item.pos, 0)
         elif self.is_horizontal(): return (0, item.pos)
 
+# class container
     def cycle_focus (self, forward = True):
         if self.focused_item_index is not None:
             item = self.items[self.focused_item_index]
@@ -586,11 +594,13 @@ class container (window):
         self.focused_item_index = None
         return False
 
+# class container
     def size_to_weight_height (self, size):
         if self.direction == container.HORIZONTAL: return (size, self.height)
         elif self.direction == container.VERTICAL: return (self.width, size)
         else: raise error('bad dir: {}', self.direction)
 
+# class container
     def on_resize (self, width, height):
         if self.direction == container.HORIZONTAL: size = width
         elif self.direction == container.VERTICAL: size = height
@@ -621,6 +631,7 @@ class container (window):
             item.window.resize(*self.size_to_weight_height(item.size))
         return
 
+# class container
     def _locate_item (self, pos):
         for i in range(len(self.items)):
             item = self.items[i]
@@ -628,6 +639,7 @@ class container (window):
                 return (item, i)
         return (None, None)
 
+# class container
     def refresh_strip (self, row, col, width):
         if self.is_vertical():
             item, idx = self._locate_item(row)
@@ -637,13 +649,28 @@ class container (window):
                 self.integrate_updates(item.pos, 0, u)
                 return
         if self.is_horizontal():
-            raise error("todo")
-        window.refresh_strip(self, row, col, width)
+            item, idx = self._locate_item(col)
+            end_col = col + width
+            while col < end_col and item:
+                w = min(item.size, width)
+                item.window.refresh_strip(row, col - item.pos, w)
+                self.integrate_updates(0, item.pos, item.window.fetch_updates())
+                col += item.size
+                width -= w
+                idx += 1
+                item = self.items[idx] if idx < len(self.items) else None
+            # if not covered 'til end fall in the default window refresh
+        if width:
+            window.refresh_strip(self, row, col, width)
         return
 
+# class container - end
+
+#* vcontainer ***************************************************************
 def vcontainer (**b):
     return container(direction = container.VERTICAL, **b)
 
+#* hcontainer ***************************************************************
 def hcontainer (**b):
     return container(direction = container.HORIZONTAL, **b)
 

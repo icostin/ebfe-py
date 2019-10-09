@@ -679,7 +679,7 @@ class editor (tui.application):
                 self.active_stream_win.render_starting_line = 1     # just the title bar
             mh = self.height - h
             if self.panel:
-                panel_width = min(60, self.width // 3)
+                panel_width = min(80, self.width // 3)
                 dmsg('adjusting with panel: panel_width', panel_width)
                 self.panel.resize(panel_width, mh)
                 self.active_stream_win.resize(self.width - panel_width, mh)
@@ -752,7 +752,7 @@ class editor (tui.application):
     def toggle_panel (self):
         if self.panel is None:
             dmsg('creating panel')
-            vc = tui.vcontainer()
+            vc = tui.hcontainer()
             self.panel = vc
             vc.add(tui.window(), max_size = 1)
             vc.add(help_window(), weight = 5)
