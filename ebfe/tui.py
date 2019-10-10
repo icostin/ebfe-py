@@ -315,6 +315,10 @@ class window (object):
         self.default_style_name = self.style_markers[None]
 
 # class window
+    def subwindows (self):
+        return
+
+# class window
     def wipe_updates (self):
         '''
         Empties the strips from the updates field.
@@ -482,6 +486,15 @@ class window (object):
         return
 
 # class window
+    def focus_to (self, win):
+        if self is win:
+            self.focus()
+            return True
+        for sw in self.subwindows():
+            if sw.focus_to(win): return True
+        return False
+
+# class window
     def focus (self, is_it = True):
         '''
         It can switch from being in focus to out of focus
@@ -532,6 +545,12 @@ class container (window):
         self.direction = direction
         self.items = []
         self.focused_item_index = None
+
+# class container
+    def subwindows (self):
+        for item in self.items:
+            yield item.window
+        return
 
 # class container
     def add (self, win, index = None, weight = 1, min_size = 1, max_size = 65535, concealed = False):
