@@ -123,6 +123,7 @@ class driver (object):
         show_focus = False
         focus_row = 0
         focus_col = 0
+        dmsg('driver: {} updates', len(updates))
         for row, strips in updates.items():
             for s in strips:
                 if len(s.text) > 0:
@@ -316,7 +317,7 @@ class window (object):
 
 # class window
     def subwindows (self):
-        return
+        return tuple()
 
 # class window
     def wipe_updates (self):
@@ -372,7 +373,7 @@ class window (object):
 
 # class window
     def put (self, row, col, styled_text, clip_col = 0, clip_width = None):
-        dmsg("************* put self: {}, row: {}, col: {}, clip_col: {}, clip_width: {}", self, row, col, clip_col, clip_width)
+        #dmsg("************* put self: {}, row: {}, col: {}, clip_col: {}, clip_width: {}", self, row, col, clip_col, clip_width)
         for style, text in styled_text_chunks(styled_text, self.default_style_name):
             self.write(row, col, style, text, clip_col, clip_width)
             col += compute_text_width(text)
@@ -552,7 +553,7 @@ class container (window):
             yield item.window
         return
 
-# class container
+# container.add()
     def add (self, win, index = None, weight = 1, min_size = 1, max_size = 65535, concealed = False):
         assert weight > 0
         assert min_size <= max_size
@@ -564,6 +565,22 @@ class container (window):
             self.focused_item_index += 1
         self.resize()
         return
+
+# class container
+    def _locate_item (self, pos):
+        for i in range(len(self.items)):
+            item = self.items[i]
+            if pos >= item.pos and pos - item.pos < item.size:
+                return (item, i)
+        return (None, None)
+
+# container.del_at_index()
+    def del_at_index (self, idx):
+        if idx >= len(self.items): raise error('boo')
+        if self.focused_item_index > idx:
+            self.focused_item_index -=1
+        del self.items[idx]
+
 
 # class container
     def is_horizontal (self):
@@ -622,9 +639,13 @@ class container (window):
 
 # class container
     def on_focus_enter (self):
-        if self.focused_item_index is not None and not self.items[self.focused_item_index].window.is_focusable():
+        if (self.focused_item_index is not None and 
+            (self.focused_item_index >= len(self.items) or
+             not self.items[self.focused_item_index].window.is_focusable())):
             self.focused_item_index = None
-        self.cycle_focus()
+            self.cycle_focus()
+        else:
+            self.items[self.focused_item_index].window.focus()
 
 # class container
     def get_item_row_col (self, item):
@@ -665,39 +686,44 @@ class container (window):
 
         self._forget_item_locations()
         min_size = self._compute_min_size()
-        dmsg('container resize({}x{}): min_size={} size={}',
-                width, height, min_size, size)
+        dmsg('{!r} resize({}x{}): min_size={} size={}',
+                self, width, height, min_size, size)
         if size < min_size:
             focused_item = self.get_focused_item()
             if focused_item:
                 focused_item.size = min(size, focused_item.max_size)
 
         items_to_place = [item for item in self.items if not item.concealed]
-        items_to_place.sort(key = lambda item: item.max_size - item.min_size, reverse = True)
+        items_to_place.sort(key = lambda item: item.max_size - item.min_size)
 
         total_weight = self._compute_weight_of_unsized_items()
         for item in items_to_place:
+            dmsg('{!r}: {!r} => iw={} tw={}', self, item, item.weight, total_weight)
             item.size = saturate(round(size * item.weight / total_weight), item.min_size, item.max_size)
             size -= item.size
             total_weight -= item.weight
         
         self._compute_position_of_items()
 
+        lp = 0
         for item in self.items:
             if item.concealed: continue
-            item.window.resize(*self.size_to_weight_height(item.size))
+            wh = self.size_to_weight_height(item.size)
+            dmsg('{!r}: resizing {!r} to {}', self, item, wh)
+            item.window.resize(*wh)
+            rc = self.get_item_row_col(item)
+            u = item.window.fetch_updates()
+            dmsg('{!r}: integrating {} updates from {!r} at {}', self, len(u), item, rc)
+            self.integrate_updates(*rc, u)
+            lp = item.pos + item.size
+
+        if lp < size: self.refresh()
+
         return
 
 # class container
-    def _locate_item (self, pos):
-        for i in range(len(self.items)):
-            item = self.items[i]
-            if pos >= item.pos and pos - item.pos < item.size:
-                return (item, i)
-        return (None, None)
-
-# class container
     def refresh_strip (self, row, col, width):
+        dmsg('{!r}.refresh_strip(row={}, col={}, width={})', self, row, col, width)
         if self.is_vertical():
             item, idx = self._locate_item(row)
             if item:
@@ -705,7 +731,7 @@ class container (window):
                 u = item.window.fetch_updates()
                 self.integrate_updates(item.pos, 0, u)
                 return
-        if self.is_horizontal():
+        elif self.is_horizontal():
             item, idx = self._locate_item(col)
             end_col = col + width
             while col < end_col and item:

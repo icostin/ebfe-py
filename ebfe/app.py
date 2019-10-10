@@ -191,7 +191,7 @@ class stream_edit_window (tui.window):
     '''
 
     def __init__ (self, stream_cache, stream_uri):
-        tui.window.__init__(self)
+        tui.window.__init__(self, can_have_focus = True)
         cfg = settings_manager(os.path.expanduser('~/.ebfe.ini'))
         self.stream_uri = stream_uri
         self.stream_cache = stream_cache
@@ -559,29 +559,6 @@ class editor (tui.application):
         #self.refresh()
 
     def generate_style_map (self, style_caps):
-        # sm = {}
-        # sm['default'] = tui.style(
-        #         attr = tui.A_NORMAL,
-        #         fg = style_caps.fg_default,
-        #         bg = style_caps.bg_default)
-        # sm['normal_title'] = tui.style(attr = tui.A_NORMAL, fg = 1, bg = 7)
-        # sm['passive_title'] = tui.style(attr = tui.A_NORMAL, fg = 0, bg = 7)
-        # sm['dash_title'] = tui.style(attr = tui.A_BOLD, fg = 2, bg = 7)
-        # sm['time_title'] = tui.style(attr = tui.A_BOLD, fg = 4, bg = 7)
-        # sm['normal_offset'] = tui.style(attr = tui.A_NORMAL, fg = 7, bg = 0)
-        # sm['offset_item_sep'] = tui.style(attr = tui.A_NORMAL, fg = 6, bg = 0)
-        # sm['known_item'] = tui.style(attr = tui.A_NORMAL, fg = 7, bg = 0)
-        # sm['uncached_item'] = tui.style(attr = tui.A_NORMAL, fg = 4, bg = 0)
-        # sm['missing_item'] = tui.style(attr = tui.A_NORMAL, fg = 8, bg = 0)
-        # sm['item1_sep'] = tui.style(attr = tui.A_NORMAL, fg = 8, bg = 0)
-        # sm['item2_sep'] = tui.style(attr = tui.A_NORMAL, fg = 8, bg = 0)
-        # sm['item4_sep'] = tui.style(attr = tui.A_NORMAL, fg = 8, bg = 0)
-        # sm['item8_sep'] = tui.style(attr = tui.A_NORMAL, fg = 8, bg = 0)
-        # sm['item_char_sep'] = tui.style(attr = tui.A_NORMAL, fg = 8, bg = 0)
-        # sm['normal_char'] = tui.style(attr = tui.A_NORMAL, fg = 6, bg = 0)
-        # sm['altered_char'] = tui.style(attr = tui.A_NORMAL, fg = 8, bg = 0)
-        # sm['uncached_char'] = tui.style(attr = tui.A_NORMAL, fg = 12, bg = 0)
-        # sm['missing_char'] = tui.style(attr = tui.A_NORMAL, fg = 8, bg = 0)
         sm = tui.parse_styles(style_caps, '''
             default attr=normal fg=7 bg=0
             normal_title attr=normal fg=1 bg=7
@@ -806,3 +783,122 @@ class editor (tui.application):
                         self.integrate_updates(w.render_starting_line, 0, w.fetch_updates())
                         #self.refresh()
 
+DEFAULT_STYLE_MAP = '''
+    default attr=normal fg=7 bg=0
+    normal_title attr=normal fg=1 bg=7
+    passive_title attr=normal fg=0 bg=7
+    dash_title attr=bold fg=2 bg=7
+    time_title attr=bold fg=4 bg=7
+
+    active_default attr=normal fg=7 bg=4
+    active_normal_offset attr=normal fg=7 bg=4
+    active_negative_offset attr=normal fg=8 bg=4
+    active_offset_item_sep attr=normal fg=6 bg=4
+    active_known_item attr=normal fg=7 bg=4
+    active_uncached_item attr=normal fg=4 bg=4
+    active_missing_item attr=normal fg=8 bg=4
+    active_item1_sep attr=normal fg=8 bg=4
+    active_item2_sep attr=normal fg=8 bg=4
+    active_item4_sep attr=normal fg=8 bg=4
+    active_item8_sep attr=normal fg=8 bg=4
+    active_item_char_sep attr=normal fg=8 bg=4
+    active_normal_char attr=normal fg=6 bg=4
+    active_altered_char attr=normal fg=8 bg=4
+    active_uncached_char attr=normal fg=12 bg=4
+    active_missing_char attr=normal fg=8 bg=4
+
+    inactive_normal_offset attr=normal fg=7 bg=0
+    inactive_negative_offset attr=normal fg=8 bg=0
+    inactive_offset_item_sep attr=normal fg=6 bg=0
+    inactive_known_item attr=normal fg=7 bg=0
+    inactive_uncached_item attr=normal fg=4 bg=0
+    inactive_missing_item attr=normal fg=8 bg=0
+    inactive_item1_sep attr=normal fg=8 bg=0
+    inactive_item2_sep attr=normal fg=8 bg=0
+    inactive_item4_sep attr=normal fg=8 bg=0
+    inactive_item8_sep attr=normal fg=8 bg=0
+    inactive_item_char_sep attr=normal fg=8 bg=0
+    inactive_normal_char attr=normal fg=6 bg=0
+    inactive_altered_char attr=normal fg=8 bg=0
+    inactive_uncached_char attr=normal fg=12 bg=0
+    inactive_missing_char attr=normal fg=8 bg=0
+
+    default_status_bar attr=normal fg=0 bg=7
+    default_console attr=normal fg=0 bg=7
+    test_focus attr=normal fg=7 bg=1
+
+    active_help_normal attr=normal fg=7 bg=6
+    active_help_stress attr=normal fg=11 bg=6
+    active_help_key attr=normal fg=10 bg=6
+    active_help_heading attr=normal fg=15 bg=6
+    active_help_topic attr=normal fg=5 bg=6
+
+    inactive_help_normal attr=normal fg=7 bg=0
+    inactive_help_stress attr=normal fg=11 bg=0
+    inactive_help_key attr=normal fg=10 bg=0
+    inactive_help_heading attr=normal fg=15 bg=0
+    inactive_help_topic attr=normal fg=5 bg=0
+'''
+
+#* main *********************************************************************/
+class main (tui.application):
+    '''
+    This is the editor app (and the root window).
+    '''
+
+    def __init__ (self, cli):
+        tui.application.__init__(self)
+
+        self.server = zlx.io.stream_cache_server()
+        for uri in cli.file:
+            f = open_file_from_uri(uri)
+            sc = zlx.io.stream_cache(f)
+            sc = self.server.wrap(sc, cli.load_delay)
+            self.stream_windows = []
+            sew = stream_edit_window(
+                    stream_cache = sc,
+                    stream_uri = uri)
+            self.stream_windows.append(sew)
+        self.active_stream_index = None
+
+        self.body = tui.hcontainer()
+
+        self.root = tui.vcontainer()
+        self.root.add(title_bar('EBFE'), max_size = 1)
+        self.root.add(self.body)
+        self.root.add(status_bar(), max_size = 1)
+
+        self.set_active_stream(0)   
+        self.root.focus_to(self.active_stream_win)
+
+    def set_active_stream (self, index):
+        if self.active_stream_index is not None:
+            self.body.del_at_index(0)
+            self.active_stream_index = None
+        assert index < len(self.stream_windows)
+        self.active_stream_index = index
+        self.active_stream_win = self.stream_windows[self.active_stream_index]
+        self.body.add(self.active_stream_win, index = 0)
+
+    def generate_style_map (self, style_caps):
+        return tui.parse_styles(style_caps, DEFAULT_STYLE_MAP)
+
+    def fetch_updates (self):
+        return self.root.fetch_updates()
+
+    def on_resize (self, width, height):
+        return self.root.resize(width, height)
+
+    def refresh_strip (self, row, col, width):
+        return self.root.refresh_strip(row, col, width)
+
+    def handle_timeout (self, msg):
+        pass
+
+    def quit (self):
+        self.server.shutdown()
+        raise tui.app_quit(0)
+
+    def handle_keystate (self, msg):
+        dmsg('editor: handle key: {!r}', msg.ch)
+        if msg.ch[1] in ('q', 'Q', 'ESC'): self.quit()
