@@ -552,8 +552,10 @@ class main (tui.application):
             self.stream_windows.append(sew)
         self.active_stream_index = None
 
+        self.panel = help_window()
+        self.body = tui.hcontainer(wid = 'body')
+        self.body.add(self.panel, weight = 0.3, min_size = 10, max_size = 60)
         self.console_win = console()
-        self.body = tui.hcontainer()
 
         self.root = tui.vcontainer()
         self.root.add(title_bar('EBFE'), max_size = 1)

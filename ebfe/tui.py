@@ -336,7 +336,7 @@ class window (object):
         if row not in self.updates:
             self.updates[row] = []
         self.updates[row].append(strip(text, style_name, col))
-        dmsg('win={!r}({}x{}) write strip: row={} col={} style={!r} text={!r}', self, self.width, self.height, row, col, style_name, text)
+        #dmsg('win={!r}({}x{}) write strip: row={} col={} style={!r} text={!r}', self, self.width, self.height, row, col, style_name, text)
 
 # class window
     def write (self, row, col, style_name, text, clip_col = 0, clip_width = None):
@@ -581,7 +581,8 @@ class container (window):
         self.items.insert(index, item)
         if self.focused_item_index is not None and index <= self.focused_item_index:
             self.focused_item_index += 1
-        self.resize()
+        if not concealed:
+            self.resize()
         return
 
 # class container
@@ -598,7 +599,6 @@ class container (window):
         if self.focused_item_index > idx:
             self.focused_item_index -=1
         del self.items[idx]
-
 
 # class container
     def is_horizontal (self):
@@ -667,6 +667,7 @@ class container (window):
             (self.focused_item_index >= len(self.items) or
              not self.items[self.focused_item_index].window.is_focusable())):
             self.focused_item_index = None
+        if self.focused_item_index is None:
             self.cycle_focus()
         else:
             item = self.items[self.focused_item_index]
@@ -700,14 +701,21 @@ class container (window):
         elif self.is_horizontal(): return (0, item.pos)
 
 # class container
-    def cycle_focus (self):
+    def cycle_focus (self, in_depth = True):
+        dmsg('{!r}.cycle_focus: focused_index={}', self, self.focused_item_index)
         if self.focused_item_index is not None:
             item = self.items[self.focused_item_index]
+            if in_depth and hasattr(item.window, 'cycle_focus'):
+                dmsg('{!r}: try cycle_focus on subitem: {!r}', self, item)
+                if item.window.cycle_focus(in_depth = True):
+                    self.integrate_updates(*self.get_item_row_col(item), item.window.fetch_updates())
+                    return True
             dmsg('{!r} - remove focus for {!r}', self, item)
             item.window.focus(False)
             self.integrate_updates(*self.get_item_row_col(item), item.window.fetch_updates())
         n = len(self.items)
-        s = (self.focused_item_index or -1) + 1
+        s = 0 if self.focused_item_index is None else self.focused_item_index + 1
+        dmsg('{!r}.cycle_focus: s={} items={!r}', self, s, self.items)
         for i in range(s, n):
             item = self.items[i]
             if item.window.is_focusable():
