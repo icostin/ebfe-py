@@ -557,7 +557,7 @@ class main (tui.application):
         self.body.add(self.panel, weight = 0.3, min_size = 10, max_size = 60)
         self.console_win = console()
 
-        self.root = tui.vcontainer()
+        self.root = tui.vcontainer(wid = 'root')
         self.root.add(title_bar('EBFE'), max_size = 1)
         self.root.add(self.body, weight = 10)
         self.root.add(self.console_win, concealed = False)
@@ -606,6 +606,7 @@ class main (tui.application):
                 self.root.cycle_focus()
             pass
         elif msg.ch[1] in (':',):
+            self.root.set_item_visibility(self.console_win, toggle = True)
             pass
         else:
             self.root.handle_keystate(msg)

@@ -302,13 +302,13 @@ class window (object):
         self.wipe_updates()
         self.set_styles(styles)
 
-# class window
-    def __repr__ (self):
+# window.__str__()
+    def __str__ (self):
         return self.wid
 
-# class window
-    def tick_tock (self):
-        pass
+# window.__repr__()
+    def __repr__ (self):
+        return self.wid
 
 # class window
     def set_styles (self, styles):
@@ -555,7 +555,7 @@ class container (window):
 
     HORIZONTAL = 0
     VERTICAL = 1
-    item = zlx.record.make('container.item', 'window weight min_size max_size concealed pos size')
+    item = zlx.record.make('container.item', 'window weight min_size max_size concealed index pos size')
 
 # class container
     def __init__ (self, direction = VERTICAL, wid = None):
@@ -564,6 +564,7 @@ class container (window):
         self.direction = direction
         self.items = []
         self.focused_item_index = None
+        self.win_to_item_ = {}
 
 # class container
     def subwindows (self):
@@ -571,18 +572,53 @@ class container (window):
             yield item.window
         return
 
+    def _update_item_indices (self, start = 0):
+        for i in range(start + 1, len(self.items)):
+            self.items[i].index = i
+
 # container.add()
     def add (self, win, index = None, weight = 1, min_size = 1, max_size = 65535, concealed = False):
         assert weight > 0
         assert min_size <= max_size
-        item = container.item(win, weight, min_size, max_size, concealed)
-        dmsg('{!r}.add({!r})', self, item)
+
         if index is None: index = len(self.items)
+
+        item = container.item(win, weight, min_size, max_size, concealed, index)
+        dmsg('{!r}.add({!r})', self, item)
         self.items.insert(index, item)
+        self.win_to_item_[win] = item
+
+        self._update_item_indices(index + 1)
+
         if self.focused_item_index is not None and index <= self.focused_item_index:
             self.focused_item_index += 1
+
         if not concealed:
             self.resize()
+
+        return item
+
+# container.set_item_visibility()
+    def set_item_visibility (self, win, visible = True, toggle = False):
+        item = self.win_to_item_[win]
+        if toggle:
+            concealed = not item.concealed
+        else:
+            concealed = not visible
+        if item.concealed == concealed:
+            dmsg('{}.set_item_visibility({},v={},t={}) => leaving {} unchanged',
+                    self, win, visible, toggle, win)
+            return
+
+        # if concealing focused item, move focus
+        if self.focused_item_index == item.index and concealed:
+            dmsg('{}.set_item_visibility({}) => concealing focused item... cycle focus',
+                    self, win)
+            self.cycle_focus(in_depth = False, wrap_around = True)
+        dmsg('{}.set_item_visibility({}) => visible={}, resizing...',
+                self, win, not concealed)
+        item.concealed = concealed
+        self.resize()
         return
 
 # class container
@@ -599,6 +635,7 @@ class container (window):
         if self.focused_item_index > idx:
             self.focused_item_index -=1
         del self.items[idx]
+        self._update_item_indices(idx)
 
 # class container
     def is_horizontal (self):
@@ -701,7 +738,7 @@ class container (window):
         elif self.is_horizontal(): return (0, item.pos)
 
 # class container
-    def cycle_focus (self, in_depth = True):
+    def cycle_focus (self, in_depth = True, wrap_around = False):
         dmsg('{!r}.cycle_focus: focused_index={}', self, self.focused_item_index)
         if self.focused_item_index is not None:
             item = self.items[self.focused_item_index]
@@ -718,7 +755,7 @@ class container (window):
         dmsg('{!r}.cycle_focus: s={} items={!r}', self, s, self.items)
         for i in range(s, n):
             item = self.items[i]
-            if item.window.is_focusable():
+            if not item.concealed and item.window.is_focusable():
                 self.focused_item_index = i
                 dmsg('{!r} - set focus for {!r}', self, item)
                 item.window.focus(True)
@@ -726,6 +763,7 @@ class container (window):
                 return True
         self.focused_item_index = None
         dmsg('{!r} - removing focused_item_index', self)
+        if wrap_around: return self.cycle_focus(in_depth = in_depth, wrap_around = False)
         return False
 
 # class container
