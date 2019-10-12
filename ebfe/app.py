@@ -171,18 +171,35 @@ class console (tui.window):
         tui.window.__init__(self,
             wid = 'console',
             styles = '''
-            default_console
+            normal
             ''',
             can_have_focus = True
         )
         self.lines_to_display = 8
+        self.on_focus_leave()
 
     def refresh_strip (self, row, col, width):
-        stext = self.sfmt('{default_console}{}:{}', row, ' ' * self.width)
+        stext = self.sfmt('{normal}{}:{}', row, ' ' * self.width)
         self.put(row, 0, stext, clip_col = col, clip_width = width)
         if self.in_focus and row == 0:
             dmsg("console - ADD FOCUS CHAR TO THE UPDATE LIST")
             self.write_(0, 0, 'test_focus', '*')
+
+    def on_focus_enter (self):
+        self.set_styles('''
+            normal=active_console
+        ''')
+        self.refresh()
+
+    def on_focus_leave (self):
+        self.set_styles('''
+            normal=inactive_console
+        ''')
+        self.refresh()
+
+    def handle_keystate (self, msg):
+        pass
+
 
 #* stream_edit_window *******************************************************
 class stream_edit_window (tui.window):
@@ -418,6 +435,7 @@ class stream_edit_window (tui.window):
 
     def on_focus_change (self):
         self.prepare_styles()
+        self.refresh()
 
 #* help_window **************************************************************
 class help_window (tui.cc_window):
@@ -496,7 +514,8 @@ DEFAULT_STYLE_MAP = '''
     inactive_missing_char attr=normal fg=8 bg=0
 
     default_status_bar attr=normal fg=0 bg=7
-    default_console attr=normal fg=0 bg=7
+    active_console attr=normal fg=0 bg=7
+    inactive_console attr=normal fg=7 bg=black
     test_focus attr=normal fg=7 bg=1
 
     active_help_normal attr=normal fg=7 bg=6
@@ -533,11 +552,13 @@ class main (tui.application):
             self.stream_windows.append(sew)
         self.active_stream_index = None
 
+        self.console_win = console()
         self.body = tui.hcontainer()
 
         self.root = tui.vcontainer()
         self.root.add(title_bar('EBFE'), max_size = 1)
-        self.root.add(self.body)
+        self.root.add(self.body, weight = 10)
+        self.root.add(self.console_win, concealed = False)
         self.root.add(status_bar(), max_size = 1)
 
         self.set_active_stream(0)   
@@ -578,6 +599,12 @@ class main (tui.application):
     def handle_keystate (self, msg):
         dmsg('editor: handle key: {!r}', msg.ch)
         if msg.ch[1] in ('q', 'Q', 'ESC'): self.quit()
+        elif msg.ch[1] in ('\t',):
+            if not self.root.cycle_focus():
+                self.root.cycle_focus()
+            pass
+        elif msg.ch[1] in (':',):
+            pass
         else:
             self.root.handle_keystate(msg)
 

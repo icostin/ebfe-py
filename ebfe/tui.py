@@ -491,6 +491,7 @@ class window (object):
             dmsg('{!r} focusing!', self)
             self.focus()
             return True
+        dmsg('{!r}.focus_to({!r}) -> false', self, win)
         return False
 
 # class window
@@ -500,8 +501,12 @@ class window (object):
         if the focusing mechanism is enabled (disabled by default)
         It will always be able to switch out of focus!
         '''
+        dmsg('{!r}: new_focus={} old_focus={} can_focus={} show={}',
+                self, is_it, self.in_focus, self.can_have_focus, self.show)
         new_focus_state = is_it and self.can_have_focus and self.show
-        if self.in_focus == new_focus_state: return
+        if self.in_focus == new_focus_state:
+            dmsg('{!r}: already in focus={}', self, new_focus_state)
+            return
         dmsg('{!r}.focus = {}', self, new_focus_state)
         self.in_focus = new_focus_state
         self.on_focus_change()
@@ -636,7 +641,7 @@ class container (window):
     def is_focusable (self):
         if not self.can_have_focus: return False
         for item in self.items:
-            if item.is_focusable(): return True
+            if item.window.is_focusable(): return True
 
 # class container
     def get_focused_item (self):
@@ -647,31 +652,45 @@ class container (window):
 
 # class container
     def on_focus_leave (self):
+        dmsg('{!r}.on_focus_leave: focused_index={}', self, self.focused_item_index)
         if self.focused_item_index is not None:
-            self.items[self.focused_item_index].window.focus(False)
+            item = self.items[self.focused_item_index]
+            item.window.focus(False)
+            u = item.window.fetch_updates()
+            dmsg('{!r}.on_focus_leave: removed focus from {!r} => {} updates', self, item.window, len(u))
+            self.integrate_updates(*self.get_item_row_col(item), u)
 
 # class container
     def on_focus_enter (self):
+        dmsg('{!r}.on_focus_enter', self)
         if (self.focused_item_index is not None and
             (self.focused_item_index >= len(self.items) or
              not self.items[self.focused_item_index].window.is_focusable())):
             self.focused_item_index = None
             self.cycle_focus()
         else:
-            self.items[self.focused_item_index].window.focus()
+            item = self.items[self.focused_item_index]
+            item.window.focus()
+            self.integrate_updates(*self.get_item_row_col(item), item.window.fetch_updates())
 
 # container.focus_to()
     def focus_to (self, win):
-        if window.focus_to(self, win): return True
         dmsg('{!r}: requested to focus on {!r}', self, win)
+        if window.focus_to(self, win): return True
         for i in range(len(self.items)):
             if self.items[i].window.focus_to(win):
                 dmsg('{!r}: item #{} focused! prev_focused_index={}',
                         self, i, self.focused_item_index)
                 if (self.focused_item_index is not None and
                         self.focused_item_index != i):
-                        self.items[self.focused_item_index].window.focus(False)
+                        item = self.items[self.focused_item_index]
+                        item.window.focus(False)
+                        self.integrate_updates(*self.get_item_row_col(item), item.window)
                 self.focused_item_index = i
+                dmsg('{!r}.focused_item_index = {}', self, i)
+                item = self.items[i]
+                self.integrate_updates(*self.get_item_row_col(item), item.window.fetch_updates())
+                self.in_focus = True
                 return True
         return False
 
@@ -681,12 +700,12 @@ class container (window):
         elif self.is_horizontal(): return (0, item.pos)
 
 # class container
-    def cycle_focus (self, forward = True):
+    def cycle_focus (self):
         if self.focused_item_index is not None:
             item = self.items[self.focused_item_index]
+            dmsg('{!r} - remove focus for {!r}', self, item)
             item.window.focus(False)
             self.integrate_updates(*self.get_item_row_col(item), item.window.fetch_updates())
-            dmsg('{!r} - remove focus for {!r}', self, item)
         n = len(self.items)
         s = (self.focused_item_index or -1) + 1
         for i in range(s, n):
@@ -698,6 +717,7 @@ class container (window):
                 self.integrate_updates(*self.get_item_row_col(item), item.window.fetch_updates())
                 return True
         self.focused_item_index = None
+        dmsg('{!r} - removing focused_item_index', self)
         return False
 
 # class container
