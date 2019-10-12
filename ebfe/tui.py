@@ -486,13 +486,11 @@ class window (object):
         self.can_have_focus = focusable
         return
 
-# class window
     def focus_to (self, win):
         if self is win:
+            dmsg('{!r} focusing!', self)
             self.focus()
             return True
-        for sw in self.subwindows():
-            if sw.focus_to(win): return True
         return False
 
 # class window
@@ -525,6 +523,21 @@ class window (object):
 
 # class window
     def on_focus_leave (self):
+        return
+
+# window.input_timeout()
+    def input_timeout (self):
+        '''
+        Calls on_input_timeout on self.
+        '''
+        dmsg('{!r}.input_timeout()', self)
+        self.on_input_timeout()
+
+    def on_input_timeout (self):
+        '''
+        Overload this to handle input timeout.
+        If a window has subwindows overload this to pass down to subwindows.
+        '''
         return
 
 # class window - end
@@ -639,13 +652,28 @@ class container (window):
 
 # class container
     def on_focus_enter (self):
-        if (self.focused_item_index is not None and 
+        if (self.focused_item_index is not None and
             (self.focused_item_index >= len(self.items) or
              not self.items[self.focused_item_index].window.is_focusable())):
             self.focused_item_index = None
             self.cycle_focus()
         else:
             self.items[self.focused_item_index].window.focus()
+
+# container.focus_to()
+    def focus_to (self, win):
+        if window.focus_to(self, win): return True
+        dmsg('{!r}: requested to focus on {!r}', self, win)
+        for i in range(len(self.items)):
+            if self.items[i].window.focus_to(win):
+                dmsg('{!r}: item #{} focused! prev_focused_index={}',
+                        self, i, self.focused_item_index)
+                if (self.focused_item_index is not None and
+                        self.focused_item_index != i):
+                        self.items[self.focused_item_index].window.focus(False)
+                self.focused_item_index = i
+                return True
+        return False
 
 # class container
     def get_item_row_col (self, item):
@@ -702,7 +730,7 @@ class container (window):
             item.size = saturate(round(size * item.weight / total_weight), item.min_size, item.max_size)
             size -= item.size
             total_weight -= item.weight
-        
+
         self._compute_position_of_items()
 
         lp = 0
@@ -720,6 +748,15 @@ class container (window):
         if lp < size: self.refresh()
 
         return
+
+# container.input_timeout()
+    def input_timeout (self):
+        self.on_input_timeout()
+        for item in self.items:
+            item.window.input_timeout()
+            if not item.concealed:
+                self.integrate_updates(*self.get_item_row_col(item),
+                        item.window.fetch_updates())
 
 # class container
     def refresh_strip (self, row, col, width):
@@ -746,6 +783,16 @@ class container (window):
         if width:
             window.refresh_strip(self, row, col, width)
         return
+
+# container.handle_keystate()
+    def handle_keystate (self, msg):
+        item = self.get_focused_item()
+        if item:
+            item.window.handle_keystate(msg)
+            self.integrate_updates(*self.get_item_row_col(item),
+                    item.window.fetch_updates())
+        else:
+            dmsg('{!r}: dropping {!r} due to unfocused item', self, msg)
 
 # class container - end
 
@@ -827,7 +874,7 @@ class application (window):
     - refresh_strip() - to generate output for a row portion when asked
     '''
 
-# class application
+# application.__init__()
     def __init__ (self):
         '''
         Initializes the root window.
@@ -835,7 +882,7 @@ class application (window):
         '''
         window.__init__(self)
 
-# class application
+# application.generate_style_map()
     def generate_style_map (self, style_caps):
         '''
         Produces a mapping name -> style where styles should be adapted
@@ -850,7 +897,7 @@ class application (window):
                 bg = style_caps.bg_default)
         return dict(default = default_style)
 
-# class application
+# application.loop()
     def loop (app, drv):
         '''
         Uses the given driver to display the app and receives events from it.
@@ -865,6 +912,11 @@ class application (window):
                 app.handle(drv.get_message())
         except app_quit as e:
             return e.ret_code
+
+# application.handle_timeout()
+    def handle_timeout (self, msg):
+        self.input_timeout()
+
 # class application - end
 
 #* run **********************************************************************
