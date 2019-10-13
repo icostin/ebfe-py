@@ -412,7 +412,7 @@ class window (object):
         redrawn.
         No need to overload this.
         '''
-        dmsg('win:{!r} refresh', self)
+        dmsg('win:{} refresh', self)
         if not self.show:
             return
 
@@ -438,7 +438,7 @@ class window (object):
         if height is None: height = self.height
         self.width = max(0, width)
         self.height = max(0, height)
-        dmsg('win:{!r} resize to {}x{}', self, self.width, self.height)
+        dmsg('win:{} resize to {}x{}', self, self.width, self.height)
         if self.width > 0 and self.height > 0:
             self.on_resize(self.width, self.height)
 
@@ -488,10 +488,10 @@ class window (object):
 
     def focus_to (self, win):
         if self is win:
-            dmsg('{!r} focusing!', self)
+            dmsg('{} focusing!', self)
             self.focus()
             return True
-        dmsg('{!r}.focus_to({!r}) -> false', self, win)
+        dmsg('{}.focus_to({}) -> false', self, win)
         return False
 
 # class window
@@ -501,13 +501,13 @@ class window (object):
         if the focusing mechanism is enabled (disabled by default)
         It will always be able to switch out of focus!
         '''
-        dmsg('{!r}: new_focus={} old_focus={} can_focus={} show={}',
+        dmsg('{}: new_focus={} old_focus={} can_focus={} show={}',
                 self, is_it, self.in_focus, self.can_have_focus, self.show)
         new_focus_state = is_it and self.can_have_focus and self.show
         if self.in_focus == new_focus_state:
-            dmsg('{!r}: already in focus={}', self, new_focus_state)
+            dmsg('{}: already in focus={}', self, new_focus_state)
             return
-        dmsg('{!r}.focus = {}', self, new_focus_state)
+        dmsg('{}.focus = {}. state: {!r}', self, new_focus_state, self)
         self.in_focus = new_focus_state
         self.on_focus_change()
 
@@ -535,7 +535,7 @@ class window (object):
         '''
         Calls on_input_timeout on self.
         '''
-        dmsg('{!r}.input_timeout()', self)
+        dmsg('{}.input_timeout()', self)
         self.on_input_timeout()
 
     def on_input_timeout (self):
@@ -566,6 +566,10 @@ class container (window):
         self.focused_item_index = None
         self.win_to_item_ = {}
 
+# container.__repr__()
+    def __repr__ (self):
+        return '{}(focus_idx={}, items={!r})'.format(self, self.focused_item_index, self.items)
+
 # class container
     def subwindows (self):
         for item in self.items:
@@ -573,7 +577,7 @@ class container (window):
         return
 
     def _update_item_indices (self, start = 0):
-        for i in range(start + 1, len(self.items)):
+        for i in range(start, len(self.items)):
             self.items[i].index = i
 
 # container.add()
@@ -584,7 +588,7 @@ class container (window):
         if index is None: index = len(self.items)
 
         item = container.item(win, weight, min_size, max_size, concealed, index)
-        dmsg('{!r}.add({!r})', self, item)
+        dmsg('{}.add({!r})', self, item)
         self.items.insert(index, item)
         self.win_to_item_[win] = item
 
@@ -596,6 +600,7 @@ class container (window):
         if not concealed:
             self.resize()
 
+        dmsg('state after container.add(): {!r}', self)
         return item
 
 # container.set_item_visibility()
@@ -614,6 +619,7 @@ class container (window):
         if self.focused_item_index == item.index and concealed:
             dmsg('{}.set_item_visibility({}) => concealing focused item... cycle focus',
                     self, win)
+            dmsg('state: {!r}', self)
             self.cycle_focus(in_depth = False, wrap_around = True)
         dmsg('{}.set_item_visibility({}) => visible={}, resizing...',
                 self, win, not concealed)
@@ -689,17 +695,17 @@ class container (window):
 
 # class container
     def on_focus_leave (self):
-        dmsg('{!r}.on_focus_leave: focused_index={}', self, self.focused_item_index)
+        dmsg('{}.on_focus_leave: focused_index={}', self, self.focused_item_index)
         if self.focused_item_index is not None:
             item = self.items[self.focused_item_index]
             item.window.focus(False)
             u = item.window.fetch_updates()
-            dmsg('{!r}.on_focus_leave: removed focus from {!r} => {} updates', self, item.window, len(u))
+            dmsg('{}.on_focus_leave: removed focus from {} => {} updates', self, item.window, len(u))
             self.integrate_updates(*self.get_item_row_col(item), u)
 
 # class container
     def on_focus_enter (self):
-        dmsg('{!r}.on_focus_enter', self)
+        dmsg('{}.on_focus_enter', self)
         if (self.focused_item_index is not None and
             (self.focused_item_index >= len(self.items) or
              not self.items[self.focused_item_index].window.is_focusable())):
@@ -713,11 +719,11 @@ class container (window):
 
 # container.focus_to()
     def focus_to (self, win):
-        dmsg('{!r}: requested to focus on {!r}', self, win)
+        dmsg('{}: requested to focus on {}', self, win)
         if window.focus_to(self, win): return True
         for i in range(len(self.items)):
             if self.items[i].window.focus_to(win):
-                dmsg('{!r}: item #{} focused! prev_focused_index={}',
+                dmsg('{}: item #{} focused! prev_focused_index={}',
                         self, i, self.focused_item_index)
                 if (self.focused_item_index is not None and
                         self.focused_item_index != i):
@@ -725,7 +731,7 @@ class container (window):
                         item.window.focus(False)
                         self.integrate_updates(*self.get_item_row_col(item), item.window)
                 self.focused_item_index = i
-                dmsg('{!r}.focused_item_index = {}', self, i)
+                dmsg('{}.focused_item_index = {}', self, i)
                 item = self.items[i]
                 self.integrate_updates(*self.get_item_row_col(item), item.window.fetch_updates())
                 self.in_focus = True
@@ -739,30 +745,30 @@ class container (window):
 
 # class container
     def cycle_focus (self, in_depth = True, wrap_around = False):
-        dmsg('{!r}.cycle_focus: focused_index={}', self, self.focused_item_index)
+        dmsg('{}.cycle_focus: focused_index={}', self, self.focused_item_index)
         if self.focused_item_index is not None:
             item = self.items[self.focused_item_index]
             if in_depth and hasattr(item.window, 'cycle_focus'):
-                dmsg('{!r}: try cycle_focus on subitem: {!r}', self, item)
+                dmsg('{}: try cycle_focus on subitem: {!r}', self, item)
                 if item.window.cycle_focus(in_depth = True):
                     self.integrate_updates(*self.get_item_row_col(item), item.window.fetch_updates())
                     return True
-            dmsg('{!r} - remove focus for {!r}', self, item)
+            dmsg('{} - remove focus for {!r}', self, item)
             item.window.focus(False)
             self.integrate_updates(*self.get_item_row_col(item), item.window.fetch_updates())
         n = len(self.items)
         s = 0 if self.focused_item_index is None else self.focused_item_index + 1
-        dmsg('{!r}.cycle_focus: s={} items={!r}', self, s, self.items)
+        dmsg('{}.cycle_focus: s={} items={!r}', self, s, self.items)
         for i in range(s, n):
             item = self.items[i]
             if not item.concealed and item.window.is_focusable():
                 self.focused_item_index = i
-                dmsg('{!r} - set focus for {!r}', self, item)
+                dmsg('{} - set focus for {!r}', self, item)
                 item.window.focus(True)
                 self.integrate_updates(*self.get_item_row_col(item), item.window.fetch_updates())
                 return True
         self.focused_item_index = None
-        dmsg('{!r} - removing focused_item_index', self)
+        dmsg('{} - removing focused_item_index', self)
         if wrap_around: return self.cycle_focus(in_depth = in_depth, wrap_around = False)
         return False
 
@@ -780,7 +786,7 @@ class container (window):
 
         self._forget_item_locations()
         min_size = self._compute_min_size()
-        dmsg('{!r} resize({}x{}): min_size={} size={}',
+        dmsg('{} resize({}x{}): min_size={} size={}',
                 self, width, height, min_size, size)
         if size < min_size:
             focused_item = self.get_focused_item()
@@ -792,7 +798,7 @@ class container (window):
 
         total_weight = self._compute_weight_of_unsized_items()
         for item in items_to_place:
-            dmsg('{!r}: {!r} => iw={} tw={}', self, item, item.weight, total_weight)
+            dmsg('{}: {!r} => iw={} tw={}', self, item, item.weight, total_weight)
             item.size = saturate(round(size * item.weight / total_weight), item.min_size, item.max_size)
             size -= item.size
             total_weight -= item.weight
@@ -803,11 +809,11 @@ class container (window):
         for item in self.items:
             if item.concealed: continue
             wh = self.size_to_weight_height(item.size)
-            dmsg('{!r}: resizing {!r} to {}', self, item, wh)
+            dmsg('{}: resizing {!r} to {}', self, item, wh)
             item.window.resize(*wh)
             rc = self.get_item_row_col(item)
             u = item.window.fetch_updates()
-            dmsg('{!r}: integrating {} updates from {!r} at {}', self, len(u), item, rc)
+            dmsg('{}: integrating {} updates from {!r} at {}', self, len(u), item, rc)
             self.integrate_updates(*rc, u)
             lp = item.pos + item.size
 
@@ -826,7 +832,7 @@ class container (window):
 
 # class container
     def refresh_strip (self, row, col, width):
-        dmsg('{!r}.refresh_strip(row={}, col={}, width={})', self, row, col, width)
+        dmsg('{}.refresh_strip(row={}, col={}, width={})', self, row, col, width)
         if self.is_vertical():
             item, idx = self._locate_item(row)
             if item:
@@ -858,7 +864,7 @@ class container (window):
             self.integrate_updates(*self.get_item_row_col(item),
                     item.window.fetch_updates())
         else:
-            dmsg('{!r}: dropping {!r} due to unfocused item', self, msg)
+            dmsg('{}: dropping {!r} due to unfocused item', self, msg)
 
 # class container - end
 
@@ -908,7 +914,7 @@ class cc_window (window):
             txt = self.sfmt(self.content[logical_row])
         else:
             txt = ''
-        dmsg('cc_win: refresh_strip with {!r}', txt)
+        dmsg('{}: cc_win: refresh_strip with {!r}', self, txt)
         w = compute_styled_text_width(txt)
         if w < self.width: txt += self.sfmt(' ' * (self.width - w))
         self.put(row, 0, txt, clip_col = col, clip_width = width)

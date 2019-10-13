@@ -607,7 +607,8 @@ class main (tui.application):
             pass
         elif msg.ch[1] in (':',):
             self.root.set_item_visibility(self.console_win, toggle = True)
-            pass
+        elif msg.ch[1] in ('KEY_F(1)',):
+            self.body.set_item_visibility(self.panel, toggle = True)
         else:
             self.root.handle_keystate(msg)
 
