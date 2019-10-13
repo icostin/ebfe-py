@@ -197,8 +197,6 @@ class console (tui.window):
         ''')
         self.refresh()
 
-    def handle_keystate (self, msg):
-        pass
 
 
 #* stream_edit_window *******************************************************
@@ -416,22 +414,22 @@ class stream_edit_window (tui.window):
             self.stream_offset -= n;
         self.refresh()
 
-    def handle_keystate (self, msg):
-        if msg.ch[1] in ('j', 'J'): self.vmove(+1)
-        elif msg.ch[1] in ('k', 'K'): self.vmove(-1)
-        elif msg.ch[1] in ('g',): self.jump_to_begin()
-        elif msg.ch[1] in ('G',): self.jump_to_end()
-        elif msg.ch[1] in ('<', 'h'): self.shift_offset(-1)
-        elif msg.ch[1] in ('>', 'l'): self.shift_offset(+1)
-        elif msg.ch[1] in ('_',): self.adjust_items_per_line(-1)
-        elif msg.ch[1] in ('+',): self.adjust_items_per_line(+1)
-        elif msg.ch[1] in ('\n',): self.cycle_modes()
-        elif msg.ch[1] in ('\x06', ' '): self.vmove(self.height - 3) # Ctrl-F
-        elif msg.ch[1] in ('\x02',): self.vmove(-(self.height - 3)) # Ctrl-B
-        elif msg.ch[1] in ('\x04',): self.vmove(self.height // 3) # Ctrl-D
-        elif msg.ch[1] in ('\x15',): self.vmove(-(self.height // 3)) # Ctrl-U
+    def on_key (self, key):
+        if key in ('j', 'J'): self.vmove(+1)
+        elif key in ('k', 'K'): self.vmove(-1)
+        elif key in ('g',): self.jump_to_begin()
+        elif key in ('G',): self.jump_to_end()
+        elif key in ('<', 'h'): self.shift_offset(-1)
+        elif key in ('>', 'l'): self.shift_offset(+1)
+        elif key in ('_',): self.adjust_items_per_line(-1)
+        elif key in ('+',): self.adjust_items_per_line(+1)
+        elif key in ('\n',): self.cycle_modes()
+        elif key in ('Ctrl-F', ' '): self.vmove(self.height - 3) # Ctrl-F
+        elif key in ('Ctrl-B',): self.vmove(-(self.height - 3)) # Ctrl-B
+        elif key in ('Ctrl-D',): self.vmove(self.height // 3) # Ctrl-D
+        elif key in ('Ctrl-U',): self.vmove(-(self.height // 3)) # Ctrl-U
         else:
-            dmsg("Unknown key: {}", msg.ch)
+            dmsg("Unknown key: {}", key)
 
     def on_focus_change (self):
         self.prepare_styles()
@@ -598,17 +596,16 @@ class main (tui.application):
     def on_input_timeout (self):
         self.root.input_timeout()
 
-    def handle_keystate (self, msg):
-        dmsg('editor: handle key: {!r}', msg.ch)
-        if msg.ch[1] in ('q', 'Q', 'ESC'): self.quit()
-        elif msg.ch[1] in ('\t',):
+    def on_key (self, key):
+        dmsg('editor: handle key: {!r}', key)
+        if key in ('q', 'Q', 'Esc'): self.quit()
+        elif key in ('Tab',):
             if not self.root.cycle_focus():
                 self.root.cycle_focus()
-            pass
-        elif msg.ch[1] in (':',):
+        elif key in (':',):
             self.root.set_item_visibility(self.console_win, toggle = True)
-        elif msg.ch[1] in ('KEY_F(1)',):
+        elif key in ('F1',):
             self.body.set_item_visibility(self.panel, toggle = True)
         else:
-            self.root.handle_keystate(msg)
+            self.root.on_key(key)
 

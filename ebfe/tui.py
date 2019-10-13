@@ -449,6 +449,13 @@ class window (object):
         '''
         self.refresh()
 
+    def handle_key (self, msg):
+        self.on_key(msg.key)
+
+    def on_key (self, key):
+        dmsg('{}: received key {}', self, key)
+        return
+
 # class window
     def handle (self, msg):
         '''
@@ -856,11 +863,11 @@ class container (window):
             window.refresh_strip(self, row, col, width)
         return
 
-# container.handle_keystate()
-    def handle_keystate (self, msg):
+# container.on_key()
+    def on_key (self, key):
         item = self.get_focused_item()
         if item:
-            item.window.handle_keystate(msg)
+            item.window.on_key(key)
             self.integrate_updates(*self.get_item_row_col(item),
                     item.window.fetch_updates())
         else:

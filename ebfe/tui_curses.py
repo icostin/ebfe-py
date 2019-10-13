@@ -1,7 +1,9 @@
 import curses
 import os
 import time
+import traceback
 import ebfe.tui as tui
+from zlx.io import dmsg
 
 class driver (tui.driver):
     def __init__ (self, scr):
@@ -29,21 +31,33 @@ class driver (tui.driver):
                 yx = self.scr.getmaxyx()
                 return tui.resize_message(yx[1], yx[0])
             
+            elif c == '\t':
+                return tui.message(name = 'key', key = 'Tab')
+            elif c == '\r':
+                return tui.message(name = 'key', key = 'Enter')
+
             elif c == '\x0c':
                 self.scr.clear()
-                return tui.message(name = 'keystate', ch = (esc, c))
+                return tui.message(name = 'key', key = 'Ctrl-L')
+
+            elif c.startswith('KEY_F('):
+                return tui.message(name = 'key', key = 'F' + c[6:-1])
+
+            elif ord(c[0]) < 32:
+                return tui.message(name = 'key', key = 'Ctrl-' + chr(ord(c[0]) + 64))
 
             # is it ESC or ALT+KEY ?
             elif c == '\x1b':
                 esc = True
                 c = self.scr.getkey()
-            
-            return tui.message(name = 'keystate', ch = (esc, c))
+                return tui.message(name = 'key', key = 'Alt-' + c)
+            return tui.message(name = 'key', key = c)
 
-        except curses.error:
+        except curses.error as e:
             #self.scr.addstr(22, 0, '{}'.format(curses.error))
+            #dmsg('exc: {}', traceback.format_exc())
             if esc:
-                return tui.message(name = 'keystate', ch = (False, 'ESC'))
+                return tui.message(name = 'key', key = 'Esc')
             else:
                 return tui.message(name = 'timeout')
 
