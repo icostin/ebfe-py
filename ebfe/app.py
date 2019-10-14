@@ -423,7 +423,7 @@ class stream_edit_window (tui.window):
         elif key in ('>', 'l'): self.shift_offset(+1)
         elif key in ('_',): self.adjust_items_per_line(-1)
         elif key in ('+',): self.adjust_items_per_line(+1)
-        elif key in ('\n',): self.cycle_modes()
+        elif key in ('Enter',): self.cycle_modes()
         elif key in ('Ctrl-F', ' '): self.vmove(self.height - 3) # Ctrl-F
         elif key in ('Ctrl-B',): self.vmove(-(self.height - 3)) # Ctrl-B
         elif key in ('Ctrl-D',): self.vmove(self.height // 3) # Ctrl-D
@@ -600,8 +600,7 @@ class main (tui.application):
         dmsg('editor: handle key: {!r}', key)
         if key in ('q', 'Q', 'Esc'): self.quit()
         elif key in ('Tab',):
-            if not self.root.cycle_focus():
-                self.root.cycle_focus()
+            self.root.cycle_focus(wrap_around = True)
         elif key in (':',):
             self.root.set_item_visibility(self.console_win, toggle = True)
         elif key in ('F1',):

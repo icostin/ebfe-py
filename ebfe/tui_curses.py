@@ -33,7 +33,7 @@ class driver (tui.driver):
             
             elif c == '\t':
                 return tui.message(name = 'key', key = 'Tab')
-            elif c == '\r':
+            elif c == '\n':
                 return tui.message(name = 'key', key = 'Enter')
 
             elif c == '\x0c':

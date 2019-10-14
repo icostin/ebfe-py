@@ -562,7 +562,7 @@ class container (window):
 
     HORIZONTAL = 0
     VERTICAL = 1
-    item = zlx.record.make('container.item', 'window weight min_size max_size concealed index pos size')
+    item = zlx.record.make('container.item', 'window weight min_size max_size concealed index focusable_index pos size')
 
 # class container
     def __init__ (self, direction = VERTICAL, wid = None):
@@ -570,12 +570,13 @@ class container (window):
         assert direction in (container.HORIZONTAL, container.VERTICAL)
         self.direction = direction
         self.items_ = []
-        self.focused_item_index = None
         self.win_to_item_ = {}
+        self.focusable_items_ = []
+        self.focused_item = None
 
 # container.__repr__()
     def __repr__ (self):
-        return '{}(focus_idx={}, items={!r})'.format(self, self.focused_item_index, self.items_)
+        return '{}(focus_idx={}, items={!r})'.format(self, self.focused_item.index if self.focused_item else -1, self.items_)
 
 # class container
     def subwindows (self):
@@ -587,24 +588,48 @@ class container (window):
         for i in range(start, len(self.items_)):
             self.items_[i].index = i
 
+    def _update_focusable_item_indices (self, start = 0):
+        for i in range(start, len(self.focusable_items_)):
+            self.items_[i].focusable_index = i
+
+    def _compute_focusable_index_from_index (self, index):
+        '''
+        given an index calculate what position should this be in the focusable item list
+        '''
+        for fx in range(len(self.focusable_items_)):
+            if index <= self.focusable_items_[fx].index:
+                return fx
+        return len(self.focusable_items_)
+
+# container._add_focusable_item()
+    def _add_focusable_item (self, item):
+        item.focusable_index = self._compute_focusable_index_from_index(item.index)
+        self.focusable_items_.insert(item.focusable_index, item)
+        self._update_focusable_item_indices(item.focusable_index + 1)
+        dmsg('{}.focusable_items: {!r}', self, self.focusable_items_)
+
+# container._del_focusable_item()
+    def _del_focusable_item (self, item):
+        assert self.focusable_items_[item.focusable_index] is item
+        del self.focusable_items_[item.focusable_index]
+        self._update_focusable_item_indices(item.focusable_index)
+        dmsg('{}.focusable_items: {!r}', self, self.focusable_items_)
+
 # container.add()
     def add (self, win, index = None, weight = 1, min_size = 1, max_size = 65535, concealed = False):
         assert weight > 0
         assert min_size <= max_size
 
         if index is None: index = len(self.items_)
-
         item = container.item(win, weight, min_size, max_size, concealed, index)
         dmsg('{}.add({!r})', self, item)
         self.items_.insert(index, item)
         self.win_to_item_[win] = item
-
         self._update_item_indices(index + 1)
 
-        if self.focused_item_index is not None and index <= self.focused_item_index:
-            self.focused_item_index += 1
-
         if not concealed:
+            if win.is_focusable():
+                self._add_focusable_item(item)
             self.resize()
 
         dmsg('state after container.add(): {!r}', self)
@@ -612,6 +637,10 @@ class container (window):
 
 # container.set_item_visibility()
     def set_item_visibility (self, win, visible = True, toggle = False):
+        '''
+        returns true if it should lose focus
+        '''
+        lose_focus = False
         item = self.win_to_item_[win]
         if toggle:
             concealed = not item.concealed
@@ -620,22 +649,36 @@ class container (window):
         if item.concealed == concealed:
             dmsg('{}.set_item_visibility({},v={},t={}) => leaving {} unchanged',
                     self, win, visible, toggle, win)
-            return
+            return lose_focus
 
         # if concealing focused item, move focus
-        if self.focused_item_index == item.index and concealed:
-            dmsg('{}.set_item_visibility({}) => concealing focused item... cycle focus',
-                    self, win)
-            dmsg('state: {!r}', self)
-            self.cycle_focus(in_depth = False, wrap_around = True)
+        if self.focused_item is item and concealed:
+            if len(self.focusable_items_) == 1:
+                lose_focus = True
+                dmsg('{} concealing focused item {!r} => request losing focus!',
+                        self, item)
+            else:
+                dmsg('{}.set_item_visibility({}) => concealing focused item... cycle focus',
+                        self, win)
+                dmsg('state: {!r}', self)
+                self.cycle_focus(in_depth = False, wrap_around = True)
+        if concealed: self._del_focusable_item(item)
+        else: self._add_focusable_item(item)
+
         dmsg('{}.set_item_visibility({}) => visible={}, resizing...',
                 self, win, not concealed)
         item.concealed = concealed
         self.resize()
-        return
+        if self.focused_item is item:
+            # there was only this item in the contained and had focus
+            # cycle_focus returned the focus back to this
+            # we have to tell caller to change focus to something else
+            self.focused_item = None
+            return True
+        return False
 
 # class container
-    def _locate_item (self, pos):
+    def _locate_item_by_pos (self, pos):
         for i in range(len(self.items_)):
             item = self.items_[i]
             if pos >= item.pos and pos - item.pos < item.size:
@@ -644,11 +687,21 @@ class container (window):
 
 # container.del_at_index()
     def del_at_index (self, idx):
+        parent_refocus = False
         if idx >= len(self.items_): raise error('boo')
-        if self.focused_item_index > idx:
-            self.focused_item_index -=1
+        item = self.items_[idx]
+        assert item.index == idx
+        if self.focused_item is item:
+            self.cycle_focus(in_depth = False, wrap_around = True)
+            if self.focused_item is item:
+                self.focused_item = None
+                parent_refocus = True
         del self.items_[idx]
+        assert self.focusable_items_[item.focusable_index] == item
+        del self.focusable_items_[item.focusable_index]
         self._update_item_indices(idx)
+        self._update_focusable_item_indices(item.focusable_index)
+        return parent_refocus
 
 # class container
     def is_horizontal (self):
@@ -686,101 +739,88 @@ class container (window):
         for item in self.items_:
             item.pos = pos
             pos += item.size
+        dmsg('{}.items: {!r}', self, self.items_)
 
 # class container
     def is_focusable (self):
-        if not self.can_have_focus: return False
-        for item in self.items_:
-            if item.window.is_focusable(): return True
+        return self.can_have_focus and self.focusable_items_
 
 # class container
-    def get_focused_item (self):
-        if self.focused_item_index is None: return None
-        assert self.focused_item_index < len(self.items_)
-        assert not self.items_[self.focused_item_index].concealed
-        return self.items_[self.focused_item_index]
+    def _get_item_row_col (self, item):
+        if self.is_vertical(): return (item.pos, 0)
+        elif self.is_horizontal(): return (0, item.pos)
 
 # class container
     def on_focus_leave (self):
-        dmsg('{}.on_focus_leave: focused_index={}', self, self.focused_item_index)
-        if self.focused_item_index is not None:
-            item = self.items_[self.focused_item_index]
+        dmsg('{}.on_focus_leave: focused={!r}', self, self.focused_item)
+        if self.focused_item:
+            item = self.focused_item
             item.window.focus(False)
             u = item.window.fetch_updates()
             dmsg('{}.on_focus_leave: removed focus from {} => {} updates', self, item.window, len(u))
-            self.integrate_updates(*self.get_item_row_col(item), u)
+            self.integrate_updates(*self._get_item_row_col(item), u)
 
 # class container
     def on_focus_enter (self):
         dmsg('{}.on_focus_enter', self)
-        if (self.focused_item_index is not None and
-            (self.focused_item_index >= len(self.items_) or
-             not self.items_[self.focused_item_index].window.is_focusable())):
-            self.focused_item_index = None
-        if self.focused_item_index is None:
+        if self.focused_item is None:
             self.cycle_focus()
         else:
-            item = self.items_[self.focused_item_index]
+            item = self.focused_item
             item.window.focus()
-            self.integrate_updates(*self.get_item_row_col(item), item.window.fetch_updates())
+            self.integrate_updates(*self._get_item_row_col(item), item.window.fetch_updates())
 
 # container.focus_to()
     def focus_to (self, win):
         dmsg('{}: requested to focus on {}', self, win)
         if window.focus_to(self, win): return True
-        for i in range(len(self.items_)):
-            if self.items_[i].window.focus_to(win):
-                dmsg('{}: item #{} focused! prev_focused_index={}',
-                        self, i, self.focused_item_index)
-                if (self.focused_item_index is not None and
-                        self.focused_item_index != i):
-                        item = self.items_[self.focused_item_index]
-                        item.window.focus(False)
-                        self.integrate_updates(*self.get_item_row_col(item), item.window)
-                self.focused_item_index = i
-                dmsg('{}.focused_item_index = {}', self, i)
-                item = self.items_[i]
-                self.integrate_updates(*self.get_item_row_col(item), item.window.fetch_updates())
+        dmsg('trying to focus on sub-items: {!r}', self.focusable_items_)
+        for item in self.focusable_items_:
+            if item.window.focus_to(win):
+                dmsg('{}: item #{!r} focused! prev_focused={!r}',
+                        self, item, self.focused_item)
+                if self.focused_item and self.focused_item is not item:
+                        self.focused_item.window.focus(False)
+                        self.integrate_updates(*self._get_item_row_col(item),
+                                self.focused_item.window)
+                self.focused_item = item
+                dmsg('{}.focused_item = {!r}', self, item)
+                self.integrate_updates(*self._get_item_row_col(item),
+                        item.window.fetch_updates())
                 self.in_focus = True
                 return True
         return False
 
 # class container
-    def get_item_row_col (self, item):
-        if self.is_vertical(): return (item.pos, 0)
-        elif self.is_horizontal(): return (0, item.pos)
-
-# class container
     def cycle_focus (self, in_depth = True, wrap_around = False):
-        dmsg('{}.cycle_focus: focused_index={}', self, self.focused_item_index)
-        if self.focused_item_index is not None:
-            item = self.items_[self.focused_item_index]
+        dmsg('{}.cycle_focus: focused_item={!r}', self, self.focused_item)
+        if self.focused_item:
+            item = self.focused_item
             if in_depth and hasattr(item.window, 'cycle_focus'):
                 dmsg('{}: try cycle_focus on subitem: {!r}', self, item)
                 if item.window.cycle_focus(in_depth = True):
-                    self.integrate_updates(*self.get_item_row_col(item), item.window.fetch_updates())
+                    self.integrate_updates(*self._get_item_row_col(item), item.window.fetch_updates())
                     return True
             dmsg('{} - remove focus for {!r}', self, item)
             item.window.focus(False)
-            self.integrate_updates(*self.get_item_row_col(item), item.window.fetch_updates())
-        n = len(self.items_)
-        s = 0 if self.focused_item_index is None else self.focused_item_index + 1
-        dmsg('{}.cycle_focus: s={} items={!r}', self, s, self.items_)
-        for i in range(s, n):
-            item = self.items_[i]
-            if not item.concealed and item.window.is_focusable():
-                self.focused_item_index = i
-                dmsg('{} - set focus for {!r}', self, item)
-                item.window.focus(True)
-                self.integrate_updates(*self.get_item_row_col(item), item.window.fetch_updates())
-                return True
-        self.focused_item_index = None
-        dmsg('{} - removing focused_item_index', self)
-        if wrap_around: return self.cycle_focus(in_depth = in_depth, wrap_around = False)
-        return False
+            self.integrate_updates(*self._get_item_row_col(item), item.window.fetch_updates())
+        s = self.focused_item.focusable_index + 1 if self.focused_item else 0
+        dmsg('s={}', s)
+        if s >= len(self.focusable_items_):
+            if wrap_around: s = 0
+        dmsg('s={}', s)
+        if s >= len(self.focusable_items_):
+            self.focused_item = None
+            dmsg('abandon focus')
+            return False
+        self.focused_item = self.focusable_items_[s]
+        self.focused_item.window.focus(True)
+        self.integrate_updates(*self._get_item_row_col(self.focused_item), 
+                self.focused_item.window.fetch_updates())
+        return True
 
 # class container
-    def size_to_weight_height (self, size):
+    def _size_to_weight_height (self, size):
         if self.direction == container.HORIZONTAL: return (size, self.height)
         elif self.direction == container.VERTICAL: return (self.width, size)
         else: raise error('bad dir: {}', self.direction)
@@ -795,10 +835,8 @@ class container (window):
         min_size = self._compute_min_size()
         dmsg('{} resize({}x{}): min_size={} size={}',
                 self, width, height, min_size, size)
-        if size < min_size:
-            focused_item = self.get_focused_item()
-            if focused_item:
-                focused_item.size = min(size, focused_item.max_size)
+        if size < min_size and self.focused_item:
+            self.focused_item.size = min(size, self.focused_item.max_size)
 
         items_to_place = [item for item in self.items_ if not item.concealed]
         items_to_place.sort(key = lambda item: item.max_size - item.min_size)
@@ -815,10 +853,10 @@ class container (window):
         lp = 0
         for item in self.items_:
             if item.concealed: continue
-            wh = self.size_to_weight_height(item.size)
+            wh = self._size_to_weight_height(item.size)
             dmsg('{}: resizing {!r} to {}', self, item, wh)
             item.window.resize(*wh)
-            rc = self.get_item_row_col(item)
+            rc = self._get_item_row_col(item)
             u = item.window.fetch_updates()
             dmsg('{}: integrating {} updates from {!r} at {}', self, len(u), item, rc)
             self.integrate_updates(*rc, u)
@@ -834,21 +872,21 @@ class container (window):
         for item in self.items_:
             item.window.input_timeout()
             if not item.concealed:
-                self.integrate_updates(*self.get_item_row_col(item),
+                self.integrate_updates(*self._get_item_row_col(item),
                         item.window.fetch_updates())
 
 # class container
     def refresh_strip (self, row, col, width):
         dmsg('{}.refresh_strip(row={}, col={}, width={})', self, row, col, width)
         if self.is_vertical():
-            item, idx = self._locate_item(row)
+            item, idx = self._locate_item_by_pos(row)
             if item:
                 item.window.refresh_strip(row - item.pos, col, width)
                 u = item.window.fetch_updates()
                 self.integrate_updates(item.pos, 0, u)
                 return
         elif self.is_horizontal():
-            item, idx = self._locate_item(col)
+            item, idx = self._locate_item_by_pos(col)
             end_col = col + width
             while col < end_col and item:
                 w = min(item.size, width)
@@ -865,11 +903,10 @@ class container (window):
 
 # container.on_key()
     def on_key (self, key):
-        item = self.get_focused_item()
-        if item:
-            item.window.on_key(key)
-            self.integrate_updates(*self.get_item_row_col(item),
-                    item.window.fetch_updates())
+        if self.focused_item:
+            self.focused_item.window.on_key(key)
+            self.integrate_updates(*self._get_item_row_col(self.focused_item),
+                    self.focused_item.window.fetch_updates())
         else:
             dmsg('{}: dropping {!r} due to unfocused item', self, msg)
 
