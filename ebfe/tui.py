@@ -781,8 +781,8 @@ class container (window):
                         self, item, self.focused_item)
                 if self.focused_item and self.focused_item is not item:
                         self.focused_item.window.focus(False)
-                        self.integrate_updates(*self._get_item_row_col(item),
-                                self.focused_item.window)
+                        self.integrate_updates(*self._get_item_row_col(self.focused_item),
+                                self.focused_item.window.fetch_updates())
                 self.focused_item = item
                 dmsg('{}.focused_item = {!r}', self, item)
                 self.integrate_updates(*self._get_item_row_col(item),
@@ -883,6 +883,7 @@ class container (window):
             if item:
                 item.window.refresh_strip(row - item.pos, col, width)
                 u = item.window.fetch_updates()
+                dmsg('{}.integrate_updates from {}: {!r}', self, item, u)
                 self.integrate_updates(item.pos, 0, u)
                 return
         elif self.is_horizontal():
@@ -952,13 +953,13 @@ class cc_window (window):
 
 # class cc_window
     def refresh_strip (self, row, col, width):
-        dmsg('cc_win: refresh row={} col={} width={}', row, col, width)
+        #dmsg('cc_win: refresh row={} col={} width={}', row, col, width)
         logical_row = self.top_row + row
         if logical_row >= 0 and logical_row < len(self.content):
             txt = self.sfmt(self.content[logical_row])
         else:
             txt = ''
-        dmsg('{}: cc_win: refresh_strip with {!r}', self, txt)
+        #dmsg('{}: cc_win: refresh_strip with {!r}', self, txt)
         w = compute_styled_text_width(txt)
         if w < self.width: txt += self.sfmt(' ' * (self.width - w))
         self.put(row, 0, txt, clip_col = col, clip_width = width)

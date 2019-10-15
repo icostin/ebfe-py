@@ -137,7 +137,10 @@ class status_bar (tui.window):
         self.tick = 0
 
     def refresh_strip (self, row, col, width):
-        stext = self.sfmt('{default_status_bar}Status bar | Test:{}', ' ' * (self.width - 5))
+        dmsg('{}.refresh_strip(row={}, col={}, width={})', self, row, col, width)
+        stext = self.sfmt('{default_status_bar}Status bar | Test:{}', ' ' * self.width)
+        if row != 0:
+            raise RuntimeError('boo')
         self.put(0, 0, stext, clip_col = col, clip_width = width)
 
 #* job details **************************************************************
@@ -558,7 +561,7 @@ class main (tui.application):
         self.root = tui.vcontainer(wid = 'root')
         self.root.add(title_bar('EBFE'), max_size = 1)
         self.root.add(self.body, weight = 10)
-        self.root.add(self.console_win, concealed = False)
+        self.root.add(self.console_win, concealed = True)
         self.root.add(status_bar(), max_size = 1)
 
         self.set_active_stream(0)   
@@ -603,6 +606,7 @@ class main (tui.application):
             self.root.cycle_focus(wrap_around = True)
         elif key in (':',):
             self.root.set_item_visibility(self.console_win, toggle = True)
+            self.root.focus_to(self.console_win)
         elif key in ('F1',):
             self.body.set_item_visibility(self.panel, toggle = True)
         else:
