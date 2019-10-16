@@ -18,6 +18,12 @@ class app_quit (error):
         error.__init__(self, 'quit tui app')
         self.ret_code = ret_code
 
+# cursor modes:
+CM_NO_UPDATE = -1
+CM_INVISIBLE = 0
+CM_NORMAL = 1
+CM_BIG = 2
+
 # attributes to be used in style (:-D all puns intended)
 A_NORMAL = 0
 A_BOLD = 1
@@ -127,6 +133,9 @@ class driver (object):
         self.prepare_render_text()
         for row, strips in updates.items():
             for s in strips:
+                if isinstance(s, cursor_update):
+                    self.set_cursor(s.mode, s.row, s.col)
+                    continue
                 if len(s.text) > 0:
                     self.render_text(s.text, s.style_name, s.col, row)
                     #if not show_focus and s.text[0] == '*' and s.style_name == 'test_focus':
@@ -160,6 +169,13 @@ class driver (object):
         '''
         pass
 
+    def set_cursor (self, mode, row, col):
+        '''
+        Sets cursor position and mode.
+        Overload this!
+        '''
+        pass
+
 # class driver - end
 
 
@@ -170,11 +186,6 @@ class style (zlx.record.Record):
     Instantiate with: style(fg, bg, attr)
     '''
     __slots__ = 'attr fg bg'.split()
-
-class strip (zlx.record.Record):
-    '''
-    A strip is a portion of a one line of text with its style.
-    '''
 
 #* make_style ***************************************************************
 def make_style (caps,
@@ -209,6 +220,9 @@ def parse_styles (caps, src):
 
 #* strip ********************************************************************
 strip = zlx.record.make('tui.strip', 'text style_name col')
+
+#* cursor_update ************************************************************
+cursor_update = zlx.record.make('tui.cursor_update', 'mode row col')
 
 #* compute_text_width *******************************************************
 def compute_text_width (text):
@@ -394,11 +408,25 @@ class window (object):
             self.write(row, col, style, text, clip_col, clip_width)
             col += compute_text_width(text)
 
-# class window
+# window.set_cursor()
+    def set_cursor (self, mode, row = 0, col = 0):
+        if not self.in_focus:
+            dmsg('{}.set_cursor({}, {}, {}) ignored (unfocused)', self, mode, row, col)
+            return
+        if row not in self.updates:
+            self.updates[row] = []
+        self.updates[row].append(cursor_update(mode, row, col))
+        return
+
+# window.integrate_updates()
     def integrate_updates (self, row_delta, col_delta, updates):
         for row in updates:
-            for s in updates[row]:
-                self.write_(row + row_delta, s.col + col_delta, s.style_name, s.text)
+            for u in updates[row]:
+                if isinstance(u, strip):
+                    self.write_(row + row_delta, u.col + col_delta, u.style_name, u.text)
+                elif isinstance(u, cursor_update):
+                    if self.in_focus:
+                        self.set_cursor(u.mode, u.row + row_delta, u.col + col_delta)
 
 # class window
     def refresh_strip (self, row, col, width):

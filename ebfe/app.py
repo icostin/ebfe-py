@@ -192,6 +192,7 @@ class console (tui.window):
         self.set_styles('''
             normal=active_console
         ''')
+        self.set_cursor(tui.CM_NORMAL, 0, 2)
         self.refresh()
 
     def on_focus_leave (self):
@@ -208,6 +209,7 @@ class stream_edit_window (tui.window):
     This is the window class for stream/file editing.
     '''
 
+# stream_edit_window.__init__
     def __init__ (self, stream_cache, stream_uri):
         tui.window.__init__(self, can_have_focus = True)
         cfg = settings_manager(os.path.expanduser('~/.ebfe.ini'))
@@ -224,6 +226,7 @@ class stream_edit_window (tui.window):
         self.refresh_on_next_tick = False
         self.show_hex = True
 
+# stream_edit_window.prepare_styles
     def prepare_styles (self):
         if self.in_focus:
             self.set_styles('''
@@ -264,7 +267,7 @@ class stream_edit_window (tui.window):
                 missing_char=inactive_missing_char
             ''')
 
-
+# stream_edit_window.refresh_strip
     def refresh_strip (self, row, col, width):
         row_offset = self.stream_offset + row * self.items_per_line
         #text = self.offset_format.format(row_offset)
@@ -357,6 +360,7 @@ class stream_edit_window (tui.window):
             dmsg("hex window - ADD FOCUS CHAR TO THE UPDATE LIST, self: {}, focus: {}, height: {}", self, self.in_focus, self.height)
             self.write_(0, 0, 'test_focus', '*')
 
+# stream_edit_window.vmove
     def vmove (self, count = 1):
         self.stream_offset += self.items_per_line * count
         if self.fluent_scroll:
@@ -365,6 +369,7 @@ class stream_edit_window (tui.window):
             self.refresh_on_next_tick = True
             self.refresh(height = 2)
 
+# stream_edit_window.shift_offset
     def shift_offset (self, disp):
         if self.reverse_offset_slide:
             self.stream_offset -= disp
@@ -372,6 +377,7 @@ class stream_edit_window (tui.window):
             self.stream_offset += disp
         self.refresh()
 
+# stream_edit_window.adjust_items_per_line
     def adjust_items_per_line (self, disp):
         self.items_per_line += disp
         if self.items_per_line < 1: self.items_per_line = 1
@@ -381,12 +387,14 @@ class stream_edit_window (tui.window):
             self.refresh_on_next_tick = True
             self.refresh(height = 1)
 
+# stream_edit_window.on_input_timeout
     def on_input_timeout (self):
         upd = self.stream_cache.reset_updated()
         if self.refresh_on_next_tick or upd:
             self.refresh_on_next_tick = False
             self.refresh()
 
+# stream_edit_window.cycle_modes
     def cycle_modes (self):
         if self.show_hex:
             self.show_hex = False
@@ -397,6 +405,7 @@ class stream_edit_window (tui.window):
             self.items_per_line = self.prev_items_per_line
         self.refresh()
 
+# stream_edit_window.jump_to_end
     def jump_to_end (self):
         n = self.items_per_line
         end_offset = self.stream_cache.get_known_end_offset()
@@ -410,6 +419,7 @@ class stream_edit_window (tui.window):
             self.stream_offset = start_ofs_mod
         self.refresh()
 
+# stream_edit_window.jump_to_begin
     def jump_to_begin (self):
         n = self.items_per_line
         self.stream_offset = self.stream_offset % n
@@ -417,6 +427,7 @@ class stream_edit_window (tui.window):
             self.stream_offset -= n;
         self.refresh()
 
+# stream_edit_window.on_key
     def on_key (self, key):
         if key in ('j', 'J'): self.vmove(+1)
         elif key in ('k', 'K'): self.vmove(-1)
@@ -434,7 +445,9 @@ class stream_edit_window (tui.window):
         else:
             dmsg("Unknown key: {}", key)
 
+# stream_edit_window.on_focus_change()
     def on_focus_change (self):
+        self.set_cursor(tui.CM_INVISIBLE)
         self.prepare_styles()
         self.refresh()
 

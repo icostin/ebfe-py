@@ -14,15 +14,18 @@ class driver (tui.driver):
         #self.scr.notimeout(False)
         #self.scr.timeout(1000)
         self.scr.nodelay(True)
-        curses.curs_set(0)
+        curses.curs_set(tui.CM_INVISIBLE)
         self.pair_seed = 1
+        self.cursor_mode = tui.CM_INVISIBLE
+        self.cursor_row = 0
+        self.cursor_col = 0
 
     # Returns a tuple containing the state of ALT/escape key and the translated input
     # wait for 0.1 seconds before returning None if no key was pressed
     def get_message (self):
         esc = False
         curses.halfdelay(1)
-        
+
         try:
             #c = self.scr.getkey()
             c = self.scr.getkey()
@@ -30,7 +33,7 @@ class driver (tui.driver):
             if c == 'KEY_RESIZE':
                 yx = self.scr.getmaxyx()
                 return tui.resize_message(yx[1], yx[0])
-            
+
             elif c == '\t':
                 return tui.message(name = 'key', key = 'Tab')
             elif c == '\n':
@@ -76,14 +79,19 @@ class driver (tui.driver):
     def render_text (self, text, style_name, column, row):
         try:
             self.scr.addstr(row, column, text, self.style_map[style_name])
+            self.scr.noutrefresh()
         except curses.error:
             pass
 
     def prepare_render_text (self):
         self.scr.noutrefresh()
+        self.scr.leaveok(True)
 
     def finish_render_text (self):
         curses.doupdate()
+        self.scr.leaveok(False)
+        curses.curs_set(self.cursor_mode)
+        self.scr.move(self.cursor_row, self.cursor_col)
 
     def build_style (drv, style):
         attr = curses.A_NORMAL
@@ -93,6 +101,11 @@ class driver (tui.driver):
         curses.init_pair(cp, style.fg, style.bg)
         return attr | curses.color_pair(cp)
 
+    def set_cursor (self, mode, row, col):
+        self.cursor_mode = mode
+        self.cursor_row = row
+        self.cursor_col = col
+        return
 
 def wrapped_run (stdscr, func):
     return func(driver(stdscr))
