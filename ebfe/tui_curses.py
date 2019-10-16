@@ -79,6 +79,12 @@ class driver (tui.driver):
         except curses.error:
             pass
 
+    def prepare_render_text (self):
+        self.scr.noutrefresh()
+
+    def finish_render_text (self):
+        curses.doupdate()
+
     def build_style (drv, style):
         attr = curses.A_NORMAL
         if style.attr & tui.A_BOLD: attr |= curses.A_BOLD

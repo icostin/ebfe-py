@@ -70,15 +70,15 @@ class driver (object):
     Input and display driver.
     Derive this to provide an interface I/O.
     '''
-# class driver
+# driver.__init__()
     def __init__ (self):
         object.__init__(self)
 
-# class driver
+# driver.get_screen_size()
     def get_screen_size (self):
         raise RuntimeError('must be implemented in derived class')
 
-# class driver
+# driver.get_style_caps()
     def get_style_caps (self):
         '''
         Overload this to return the capabilites for styles.
@@ -86,7 +86,7 @@ class driver (object):
         '''
         return style_caps(A_NORMAL, 1, 1, 0, 0)
 
-# class driver
+# driver.register_styles()
     def register_styles (self, style_map):
         '''
         Processes the given map and for each style calls register_style()
@@ -98,7 +98,7 @@ class driver (object):
         for k, v in style_map.items():
             self.style_map[k] = self.build_style(v)
 
-# class driver
+# driver.build_style()
     def build_style (self, style):
         '''
         Process the tui attributes and colors and generate whatever is needed
@@ -107,14 +107,14 @@ class driver (object):
         '''
         return style
 
-# class driver
+# driver.get_message()
     def get_message (self):
         '''
         Overload this or else...
         '''
         return message('quit')
 
-# class driver
+# driver.render()
     def render (self, updates):
         '''
         Goes through all update strips and renders them.
@@ -124,6 +124,7 @@ class driver (object):
         focus_row = 0
         focus_col = 0
         dmsg('driver: {} updates', len(updates))
+        self.prepare_render_text()
         for row, strips in updates.items():
             for s in strips:
                 if len(s.text) > 0:
@@ -136,11 +137,26 @@ class driver (object):
                         dmsg("RENDER FOCUS CHAR POSITION -> row: {}, s_col: {}, text: {}, style: {}", row, s.col, s.text[:1], s.style_name)
         if show_focus:
             self.render_text('*', 'test_focus', focus_col, focus_row)
+        self.finish_render_text()
 
-# class driver
+# driver.render_text()
     def render_text (self, text, style_name, column, row):
         '''
         Overload this to output.
+        '''
+        pass
+
+    def prepare_render_text (self):
+        '''
+        Called before rendering text.
+        Overload this to do something right before the avalanche of render_text() calls.
+        '''
+        pass
+
+    def finish_render_text (self):
+        '''
+        Called after rendering text.
+        Overload this to do something after render_text() calls.
         '''
         pass
 
