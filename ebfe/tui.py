@@ -503,12 +503,12 @@ class window (object):
 
 # window.handle_key()
     def handle_key (self, msg):
-        self.on_key(msg.key)
+        return self.on_key(msg.key)
 
 # window.on_key()
     def on_key (self, key):
         dmsg('{}: received key {}', self, key)
-        return
+        return False
 
 # window.handle()
     def handle (self, msg):
@@ -586,10 +586,14 @@ class window (object):
 
 # window.on_focus_enter()
     def on_focus_enter (self):
+        if hasattr(self, 'active_styles'):
+            self.set_styles(getattr(self, 'active_styles'))
         return
 
 # window.on_focus_leave()
     def on_focus_leave (self):
+        if hasattr(self, 'inactive_styles'):
+            self.set_styles(getattr(self, 'inactive_styles'))
         return
 
 # window.input_timeout()
@@ -964,11 +968,14 @@ class container (window):
 # container.on_key()
     def on_key (self, key):
         if self.focused_item:
-            self.focused_item.window.on_key(key)
-            self.integrate_updates(*self._get_item_row_col(self.focused_item),
-                    self.focused_item.window.fetch_updates())
+            key_handled = self.focused_item.window.on_key(key)
+            if key_handled:
+                self.integrate_updates(*self._get_item_row_col(self.focused_item),
+                        self.focused_item.window.fetch_updates())
         else:
             dmsg('{}: dropping {!r} due to unfocused item', self, msg)
+            key_handled = True
+        return key_handled
 
 # class container - end
 
@@ -990,8 +997,12 @@ class cc_window (window):
     '''
 
 # cc_window.__init__()
-    def __init__ (self, wid = None, init_content = None, width = 0, height = 0, styles = 'default'):
-        window.__init__(self, wid, width, height, styles)
+    def __init__ (self, wid = None, init_content = None, styles = 'default',
+            can_have_focus = False):
+        window.__init__(self,
+                wid = wid,
+                can_have_focus = can_have_focus,
+                styles = styles)
         self.content = []
         self.top_row = 0
         if init_content: self.set_content(0, init_content)
@@ -1036,6 +1047,86 @@ class cc_window (window):
         self.refresh()
 
 # end cc_window
+
+#* input_line ***************************************************************
+class input_line (window):
+
+# input_line.__init__()
+    def __init__ (self,
+            styles,
+            accept_text_func = lambda text: text,
+            cancel_text_func = lambda : None,
+            cursor_mode = CM_NORMAL):
+        window.__init__(self,
+                styles = styles,
+                can_have_focus = True)
+        self.text = ''
+        self.pos = 0
+        self.accept_text_func = accept_text_func
+        self.cancel_text_func = cancel_text_func
+        self.cursor_mode = CM_NORMAL
+
+# input_line.refresh_strip()
+    def refresh_strip (self, row, col, width):
+        if row != 0:
+            window.refresh_strip(self, row, col, width)
+            return
+        t = self.text
+        self.put(row, 0, t, clip_col = col, clip_width = width)
+        self.put(row, len(t), ' ' * max(0, self.width - len(t)), clip_col = col, clip_width = width)
+        if self.pos >= col and self.pos - col < width:
+            self.set_cursor(self.cursor_mode, 0, self.pos)
+
+# input_line.on_key()
+    def on_key (self, key):
+        if key in ('Ctrl-A', 'Home'):
+            if self.pos > 0:
+                self.pos = 0
+                self.set_cursor(self.cursor_mode, 0, self.pos)
+            return True
+        if key in ('Ctrl-B', 'Left'):
+            if self.pos > 0:
+                self.pos -= 1
+                self.set_cursor(self.cursor_mode, 0, self.pos)
+            return True
+        if key in ('Ctrl-F', 'Right'):
+            if self.pos < len(self.text):
+                self.pos += 1
+                self.set_cursor(self.cursor_mode, 0, self.pos)
+            return True
+        if key in ('Ctrl-E', 'End'):
+            if self.pos < len(self.text):
+                self.pos += 1
+                self.set_cursor(self.cursor_mode, 0, self.pos)
+            return True
+        if key in ('Enter',):
+            self.on_accept_text()
+            self.refresh()
+            return True
+        if key in ('Esc',):
+            self.on_cancel()
+            self.refresh()
+            return True
+        else:
+        #if len(key) == 1:
+            self.text = self.text[0 : self.pos] + key + self.text[self.pos : ]
+            self.pos += len(key)
+            self.refresh()
+            return True
+        return False
+
+# input_line.on_accept_text()
+    def on_accept_text (self):
+        '''
+        Called when Enter is pressed while having focus.
+        '''
+        self.accept_text_func(self.text)
+
+    def on_cancel (self):
+        '''
+        Called when input is cancelled (Esc is pressed).
+        '''
+        self.cancel_text_func()
 
 #* application **************************************************************
 class application (window):

@@ -149,8 +149,7 @@ class processing_details (tui.window):
             wid = 'processing_details_win',
             styles = '''
             default_status_bar
-            '''
-        )
+            ''')
         self.lines_to_display = 1
 
     def refresh_strip (self, row, col, width):
@@ -162,42 +161,41 @@ class processing_details (tui.window):
 
 
 #* console ******************************************************************
-class console (tui.window):
+class console (tui.container):
     '''
     Console for commands
     '''
-    def __init__ (self):
-        tui.window.__init__(self,
-            wid = 'console',
-            styles = '''
-            normal
-            ''',
-            can_have_focus = True
-        )
-        self.lines_to_display = 8
-        self.on_focus_leave()
 
-    def refresh_strip (self, row, col, width):
-        stext = self.sfmt('{normal}{}:{}', row, ' ' * self.width)
-        self.put(row, 0, stext, clip_col = col, clip_width = width)
-        if self.in_focus and row == 0:
-            dmsg("console - ADD FOCUS CHAR TO THE UPDATE LIST")
-            self.write_(0, 0, 'test_focus', '*')
+    active_styles = '''
+            normal=active_console
+    '''
+
+    inactive_styles = '''
+            normal=inactive_console
+    '''
+
+    def __init__ (self, wid = None):
+        tui.container.__init__(self,
+                wid = wid,
+                direction = tui.container.VERTICAL)
+        self.msg_win = tui.cc_window(init_content = 'This is the console area.',
+                can_have_focus = False,
+                styles = self.inactive_styles)
+        self.input_win = tui.input_line(styles = self.inactive_styles)
+        self.add(self.msg_win)
+        self.add(self.input_win, max_size = 1)
 
     def on_focus_enter (self):
-        self.set_styles('''
-            normal=active_console
-        ''')
-        self.set_cursor(tui.CM_NORMAL, 0, 2)
+        self.msg_win.set_styles(self.active_styles)
+        self.input_win.set_styles(self.active_styles)
+        tui.container.on_focus_enter(self)
         self.refresh()
 
     def on_focus_leave (self):
-        self.set_styles('''
-            normal=inactive_console
-        ''')
+        self.msg_win.set_styles(self.inactive_styles)
+        self.input_win.set_styles(self.inactive_styles)
+        tui.container.on_focus_leave(self)
         self.refresh()
-
-
 
 #* stream_edit_window *******************************************************
 class stream_edit_window (tui.window):
@@ -441,6 +439,8 @@ class stream_edit_window (tui.window):
         elif key in ('Ctrl-U',): self.vmove(-(self.height // 3)) # Ctrl-U
         else:
             dmsg("Unknown key: {}", key)
+            return False
+        return True
 
 # stream_edit_window.on_focus_change()
     def on_focus_change (self):
@@ -525,7 +525,7 @@ DEFAULT_STYLE_MAP = '''
     inactive_missing_char attr=normal fg=8 bg=0
 
     default_status_bar attr=normal fg=0 bg=7
-    active_console attr=normal fg=0 bg=7
+    active_console attr=normal fg=11 bg=6
     inactive_console attr=normal fg=7 bg=black
     test_focus attr=normal fg=7 bg=1
 
@@ -569,6 +569,7 @@ class main (tui.application):
         self.body = tui.hcontainer(wid = 'body')
         self.body.add(self.panel, weight = 0.3, min_size = 10, max_size = 60)
         self.console_win = console()
+        self.console_win.input_win.cancel_text_func = self._hide_console
 
         self.root = tui.vcontainer(wid = 'root')
         self.root.add(title_bar('EBFE'), max_size = 1)
@@ -584,6 +585,9 @@ class main (tui.application):
         self.active_stream_win = self.stream_windows[0]
 
         self.root.focus_to(self.active_stream_win)
+
+    def _hide_console (self):
+        self.root.set_item_visibility(self.console_win, False)
 
     def subwindows (self):
         yield self.root
@@ -619,14 +623,23 @@ class main (tui.application):
 
     def on_key (self, key):
         dmsg('editor: handle key: {!r}', key)
-        if key in ('q', 'Q', 'Esc'): self.quit()
-        elif key in ('Tab',):
+
+        # handle global shortcuts first
+        if key in ('Tab', ):
             self.root.cycle_focus(wrap_around = True)
-        elif key in (':',):
-            self.root.set_item_visibility(self.console_win, toggle = True)
-            self.root.focus_to(self.console_win)
-        elif key in ('F1',):
+            return True
+
+        if key in ('F1',):
             self.body.set_item_visibility(self.panel, toggle = True)
-        else:
-            self.root.on_key(key)
+            return True
+
+        # pass to focused window
+        if self.root.on_key(key):
+            return True
+
+        # handle keys not used by the focused window
+        if key in ('q', 'Q', 'Esc'): self.quit()
+        elif key in (':',):
+            self.root.set_item_visibility(self.console_win, True)
+            self.root.focus_to(self.console_win)
 

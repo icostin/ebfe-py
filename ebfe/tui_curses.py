@@ -38,8 +38,10 @@ class driver (tui.driver):
                 return tui.message(name = 'key', key = 'Tab')
             elif c == '\n':
                 return tui.message(name = 'key', key = 'Enter')
+            elif c == '\x1B':
+                return tui.message(name = 'key', key = 'Esc')
 
-            elif c == '\x0c':
+            elif c == '\x0C':
                 self.scr.clear()
                 return tui.message(name = 'key', key = 'Ctrl-L')
 
