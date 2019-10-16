@@ -181,9 +181,14 @@ class console (tui.container):
         self.msg_win = tui.cc_window(init_content = 'This is the console area.',
                 can_have_focus = False,
                 styles = self.inactive_styles)
-        self.input_win = tui.input_line(styles = self.inactive_styles)
+        self.input_win = tui.input_line(styles = self.inactive_styles,
+                accept_text_func = self._accept_input)
         self.add(self.msg_win)
         self.add(self.input_win, max_size = 1)
+
+    def _accept_input (self, text):
+        self.msg_win.set_content(len(self.msg_win.content), text)
+        self.input_win.clear_text()
 
     def on_focus_enter (self):
         self.msg_win.set_styles(self.active_styles)

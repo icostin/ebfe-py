@@ -74,6 +74,10 @@ class resize_message (message):
     __slots__ = 'width height'.split()
     name = 'resize'
 
+class key_message (message):
+    __slots__ = 'key'.split()
+    name = 'key'
+
 #* driver *******************************************************************
 class driver (object):
     '''
@@ -1015,6 +1019,7 @@ class cc_window (window):
             self.content.append('')
         self.content[row : row + len(l)] = l
         dmsg('got content:\n{}', '\n'.join([repr(x) for x in self.content]))
+        self.refresh()
 
 # cc_window.scroll()
     def scroll (self, delta, absolute = False):
@@ -1077,6 +1082,12 @@ class input_line (window):
         if self.pos >= col and self.pos - col < width:
             self.set_cursor(self.cursor_mode, 0, self.pos)
 
+    def clear_text (self):
+        if len(self.text):
+            self.text = ''
+            self.pos = 0
+            self.refresh()
+
 # input_line.on_key()
     def on_key (self, key):
         if key in ('Ctrl-A', 'Home'):
@@ -1101,9 +1112,7 @@ class input_line (window):
             return True
         if key in ('Ctrl-U',):
             if self.text:
-                self.pos = 0
-                self.text = ''
-                self.refresh()
+                self.clear_text()
             return True
         if key in ('Enter',):
             self.on_accept_text()
