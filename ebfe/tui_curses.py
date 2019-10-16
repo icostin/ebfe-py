@@ -29,6 +29,7 @@ class driver (tui.driver):
         try:
             #c = self.scr.getkey()
             c = self.scr.getkey()
+            dmsg('got key: {}', c)
 
             if c == 'KEY_RESIZE':
                 yx = self.scr.getmaxyx()
@@ -38,9 +39,6 @@ class driver (tui.driver):
                 return tui.message(name = 'key', key = 'Tab')
             elif c == '\n':
                 return tui.message(name = 'key', key = 'Enter')
-            elif c == '\x1B':
-                return tui.message(name = 'key', key = 'Esc')
-
             elif c == '\x0C':
                 self.scr.clear()
                 return tui.message(name = 'key', key = 'Ctrl-L')
@@ -48,14 +46,15 @@ class driver (tui.driver):
             elif c.startswith('KEY_F('):
                 return tui.message(name = 'key', key = 'F' + c[6:-1])
 
-            elif ord(c[0]) < 32:
-                return tui.message(name = 'key', key = 'Ctrl-' + chr(ord(c[0]) + 64))
 
             # is it ESC or ALT+KEY ?
             elif c == '\x1b':
                 esc = True
                 c = self.scr.getkey()
+                dmsg('continuation key: {}', c)
                 return tui.message(name = 'key', key = 'Alt-' + c)
+            elif ord(c[0]) < 32:
+                return tui.message(name = 'key', key = 'Ctrl-' + chr(ord(c[0]) + 64))
             return tui.message(name = 'key', key = c)
 
         except curses.error as e:
