@@ -1099,6 +1099,12 @@ class input_line (window):
                 self.pos += 1
                 self.set_cursor(self.cursor_mode, 0, self.pos)
             return True
+        if key in ('Ctrl-U',):
+            if self.text:
+                self.pos = 0
+                self.text = ''
+                self.refresh()
+            return True
         if key in ('Enter',):
             self.on_accept_text()
             self.refresh()
