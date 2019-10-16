@@ -12,10 +12,6 @@ from zlx.io import dmsg
 # internal module imports
 import ebfe.tui as tui
 
-#* main *********************************************************************
-def main (tui_driver, cli):
-    msg = tui_driver.get_message()
-
 #* open_file_from_uri *******************************************************
 def open_file_from_uri (uri):
     if '://' in uri:
@@ -223,6 +219,7 @@ class stream_edit_window (tui.window):
         self.reverse_offset_slide = cfg.bget('window: hex edit', 'reverse_offset_slide', True)
         self.refresh_on_next_tick = False
         self.show_hex = True
+        self.prepare_styles()
 
     def prepare_styles (self):
         if self.in_focus:
@@ -542,15 +539,17 @@ class main (tui.application):
         tui.application.__init__(self)
 
         self.server = zlx.io.stream_cache_server()
+        self.stream_windows = []
         for uri in cli.file:
+            dmsg('uri={!r}', uri)
             f = open_file_from_uri(uri)
             sc = zlx.io.stream_cache(f)
             sc = self.server.wrap(sc, cli.load_delay)
-            self.stream_windows = []
             sew = stream_edit_window(
                     stream_cache = sc,
                     stream_uri = uri)
             self.stream_windows.append(sew)
+        dmsg('stream windows: {!r}', self.stream_windows)
         self.active_stream_index = None
 
         self.panel = help_window()
@@ -564,7 +563,13 @@ class main (tui.application):
         self.root.add(self.console_win, concealed = True)
         self.root.add(status_bar(), max_size = 1)
 
-        self.set_active_stream(0)   
+        #self.set_active_stream(0)
+        for i in range(len(self.stream_windows)):
+            sw = self.stream_windows[i]
+            dmsg('adding in container window for {!r}', cli.file[i])
+            self.body.add(sw, index = i)
+        self.active_stream_win = self.stream_windows[0]
+
         self.root.focus_to(self.active_stream_win)
 
     def subwindows (self):
