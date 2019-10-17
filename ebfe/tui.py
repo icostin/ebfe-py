@@ -74,6 +74,7 @@ class resize_message (message):
     __slots__ = 'width height'.split()
     name = 'resize'
 
+#* key_message **************************************************************
 class key_message (message):
     __slots__ = 'key'.split()
     name = 'key'
