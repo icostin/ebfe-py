@@ -224,7 +224,7 @@ class stream_edit_window (tui.window):
         self.reverse_offset_slide = cfg.bget('window: hex edit', 'reverse_offset_slide', True)
         self.refresh_on_next_tick = False
         self.show_hex = True
-        self.cp437 = [  '\u0000', '\u263A', '\u263B', '\u2665', '\u2666', '\u2663', '\u2660', '\u2022',
+        self.cp437 = [  '\u0020', '\u263A', '\u263B', '\u2665', '\u2666', '\u2663', '\u2660', '\u2022',
                         '\u25D8', '\u25CB', '\u25D9', '\u2642', '\u2640', '\u266A', '\u266B', '\u263C',
                         '\u25BA', '\u25C4', '\u2195', '\u203C', '\u00B6', '\u00A7', '\u25AC', '\u21A8',
                         '\u2191', '\u2193', '\u2192', '\u2190', '\u221F', '\u2194', '\u25B2', '\u25BC',
