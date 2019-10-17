@@ -256,7 +256,8 @@ class stream_edit_window (tui.window):
                         '\u03A6', '\u0398', '\u03A9', '\u03B4', '\u221E', '\u03C6', '\u03B5', '\u2229',
                         '\u2261', '\u00B1', '\u2265', '\u2264', '\u2320', '\u2321', '\u00F7', '\u2248',
                         '\u00B0', '\u2219', '\u00B7', '\u221A', '\u207F', '\u00B2', '\u25A0', '\u00A0' ]
-        self.character_display = 'cp437'
+        self.character_display = cfg.get('window: hex edit', 'code_page', '')
+        #self.character_display = 'cp437'
         self.prepare_styles()
 
 # stream_edit_window.prepare_styles
