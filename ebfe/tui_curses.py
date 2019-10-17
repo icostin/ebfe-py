@@ -35,6 +35,8 @@ class driver (tui.driver):
                 yx = self.scr.getmaxyx()
                 return tui.resize_message(yx[1], yx[0])
 
+            elif c == 'KEY_BACKSPACE':
+                return tui.message(name = 'key', key = 'Backspace')
             elif c == '\t':
                 return tui.message(name = 'key', key = 'Tab')
             elif c == '\n':

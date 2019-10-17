@@ -1101,6 +1101,12 @@ class input_line (window):
                 self.pos -= 1
                 self.set_cursor(self.cursor_mode, 0, self.pos)
             return True
+        if key in ('Backspace',):
+            if self.pos > 0:
+                self.pos -= 1
+                self.text = self.text[0 : self.pos] + self.text[self.pos + 1 : 0]
+                self.refresh()
+            return True
         if key in ('Ctrl-F', 'Right'):
             if self.pos < len(self.text):
                 self.pos += 1
