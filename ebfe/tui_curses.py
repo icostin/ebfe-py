@@ -35,35 +35,32 @@ class driver (tui.driver):
                 yx = self.scr.getmaxyx()
                 return tui.resize_message(yx[1], yx[0])
 
-            elif c == 'KEY_BACKSPACE':
-                return tui.message(name = 'key', key = 'Backspace')
             elif c == '\t':
-                return tui.message(name = 'key', key = 'Tab')
+                return tui.key_message('Tab')
             elif c == '\n':
-                return tui.message(name = 'key', key = 'Enter')
+                return tui.key_message('Enter')
             elif c == '\x0C':
                 self.scr.clear()
-                return tui.message(name = 'key', key = 'Ctrl-L')
-
+                return tui.key_message('Ctrl-L')
             elif c.startswith('KEY_F('):
-                return tui.message(name = 'key', key = 'F' + c[6:-1])
-
-
+                return tui.key_message('F' + c[6:-1])
+            elif c.startswith('KEY_'):
+                return tui.key_message(c[4:].capitalize())
             # is it ESC or ALT+KEY ?
             elif c == '\x1b':
                 esc = True
                 c = self.scr.getkey()
                 dmsg('continuation key: {}', c)
-                return tui.message(name = 'key', key = 'Alt-' + c)
+                return tui.key_message('Alt-' + c)
             elif ord(c[0]) < 32:
-                return tui.message(name = 'key', key = 'Ctrl-' + chr(ord(c[0]) + 64))
-            return tui.message(name = 'key', key = c)
+                return tui.key_message('Ctrl-' + chr(ord(c[0]) + 64))
+            return tui.key_message(c)
 
         except curses.error as e:
             #self.scr.addstr(22, 0, '{}'.format(curses.error))
             #dmsg('exc: {}', traceback.format_exc())
             if esc:
-                return tui.message(name = 'key', key = 'Esc')
+                return tui.key_message('Esc')
             else:
                 return tui.message(name = 'timeout')
 

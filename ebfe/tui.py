@@ -1114,7 +1114,7 @@ class input_line (window):
             return True
         if key in ('Ctrl-E', 'End'):
             if self.pos < len(self.text):
-                self.pos += 1
+                self.pos = len(self.text)
                 self.set_cursor(self.cursor_mode, 0, self.pos)
             return True
         if key in ('Ctrl-U',):
