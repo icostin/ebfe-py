@@ -35,6 +35,8 @@ class driver (tui.driver):
                 yx = self.scr.getmaxyx()
                 return tui.resize_message(yx[1], yx[0])
 
+            elif c == '\0':
+                return tui.key_message('Ctrl-Space')
             elif c == '\t':
                 return tui.key_message('Tab')
             elif c == '\n':

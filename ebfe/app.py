@@ -633,6 +633,8 @@ class main (tui.application):
         if key in ('Tab', ):
             self.root.cycle_focus(wrap_around = True)
             return True
+        if key in ('Alt-x', ):
+            self.quit()
 
         if key in ('F1',):
             self.body.set_item_visibility(self.panel, toggle = True)

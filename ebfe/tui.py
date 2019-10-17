@@ -1119,7 +1119,14 @@ class input_line (window):
             return True
         if key in ('Ctrl-U',):
             if self.text:
-                self.clear_text()
+                self.text = self.text[self.pos : ]
+                self.pos = 0;
+                self.refresh()
+            return True
+        if key in ('Ctrl-K',):
+            if self.text and self.pos < len(self.text):
+                self.text = self.text[0 : self.pos]
+                self.refresh()
             return True
         if key in ('Enter',):
             self.on_accept_text()
