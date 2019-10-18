@@ -596,7 +596,8 @@ class main (tui.application):
 
         self.server = zlx.io.stream_cache_server()
         self.stream_windows = []
-        for uri in cli.file:
+        file_uris = cli.file or ('mem://0', 'mem://1')
+        for uri in file_uris:
             dmsg('uri={!r}', uri)
             f = open_file_from_uri(uri)
             sc = zlx.io.stream_cache(f)
@@ -623,7 +624,7 @@ class main (tui.application):
         #self.set_active_stream(0)
         for i in range(len(self.stream_windows)):
             sw = self.stream_windows[i]
-            dmsg('adding in container window for {!r}', cli.file[i])
+            dmsg('adding in container window for {!r}', file_uris[i])
             self.body.add(sw, index = i)
         self.active_stream_win = self.stream_windows[0]
 
