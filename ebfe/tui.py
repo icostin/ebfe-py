@@ -1083,7 +1083,7 @@ class input_line (window):
         if self.pos >= col and self.pos - col < width:
             self.set_cursor(self.cursor_mode, 0, self.pos)
 
-    def clear_text (self):
+    def erase_text (self):
         if len(self.text):
             self.text = ''
             self.pos = 0

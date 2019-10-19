@@ -232,7 +232,7 @@ class console (tui.container):
 
     def _accept_input (self, text):
         self.msg_win.set_content(len(self.msg_win.content), text)
-        self.input_win.clear_text()
+        self.input_win.erase_text()
 
     def on_focus_enter (self):
         self.msg_win.set_styles(self.active_styles)
@@ -618,7 +618,7 @@ class main (tui.application):
         self.body = tui.hcontainer(wid = 'body')
         self.body.add(self.panel, weight = 0.3, min_size = 10, max_size = 60)
         self.console_win = console()
-        self.console_win.input_win.cancel_text_func = self._hide_console
+        self.console_win.input_win.cancel_text_func = self._cancel_console_input
 
         self.root = tui.vcontainer(wid = 'root')
         self.root.add(title_bar('EBFE'), max_size = 1)
@@ -635,8 +635,11 @@ class main (tui.application):
 
         self.root.focus_to(self.active_stream_win)
 
-    def _hide_console (self):
-        self.root.set_item_visibility(self.console_win, False)
+    def _cancel_console_input (self):
+        if self.console_win.input_win.text:
+            self.console_win.input_win.erase_text()
+        else:
+            self.root.set_item_visibility(self.console_win, False)
 
     def subwindows (self):
         yield self.root
