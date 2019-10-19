@@ -344,8 +344,6 @@ class window (object):
         self.height = height
         self.can_have_focus = can_have_focus
         self.in_focus = False
-        self.render_starting_line = -1
-        self.render_starting_column = 0
         self.wipe_updates()
         self.set_styles(styles)
 
