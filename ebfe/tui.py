@@ -329,7 +329,12 @@ class window (object):
     wid_seed = 0
 
 # window.__init__()
-    def __init__ (self, wid = None, width = 0, height = 0, styles = 'default', can_have_focus = False, show = True):
+    def __init__ (self,
+            wid = None,
+            width = 0,
+            height = 0,
+            styles = 'default',
+            can_have_focus = False):
         object.__init__(self)
         if wid is None:
             wid = '{}_{}'.format(self.__class__.__name__, window.wid_seed)
@@ -338,7 +343,6 @@ class window (object):
         self.width = width
         self.height = height
         self.can_have_focus = can_have_focus
-        self.show = show
         self.in_focus = False
         self.render_starting_line = -1
         self.render_starting_column = 0
@@ -387,8 +391,6 @@ class window (object):
         Adds the given text taking into account the given clipping coords.
         No need to overload this.
         '''
-        if not self.show: return
-
         # limit clipping coords to window width
         clip_end_col = clip_col + clip_width if clip_width is not None else self.width
         if clip_col < 0: clip_col = 0
@@ -470,8 +472,6 @@ class window (object):
         No need to overload this.
         '''
         dmsg('win:{} refresh', self)
-        if not self.show:
-            return
 
         if start_row >= self.height or start_col >= self.width: return
 
@@ -568,9 +568,9 @@ class window (object):
         if the focusing mechanism is enabled (disabled by default)
         It will always be able to switch out of focus!
         '''
-        dmsg('{}: new_focus={} old_focus={} can_focus={} show={}',
-                self, is_it, self.in_focus, self.can_have_focus, self.show)
-        new_focus_state = is_it and self.can_have_focus and self.show
+        dmsg('{}: new_focus={} old_focus={} can_focus={}',
+                self, is_it, self.in_focus, self.can_have_focus)
+        new_focus_state = is_it and self.can_have_focus
         if self.in_focus == new_focus_state:
             dmsg('{}: already in focus={}', self, new_focus_state)
             return
