@@ -199,10 +199,6 @@ class processing_details (tui.window):
     def refresh_strip (self, row, col, width):
         stext = self.sfmt('{default_status_bar}Working...{}', ' ' * (self.width - 10))
         self.put(row, 0, stext, clip_col = col, clip_width = width)
-        if self.in_focus and row == 0:
-            dmsg("processing_details - ADD FOCUS CHAR TO THE UPDATE LIST")
-            self.write_(0, 0, 'test_focus', '*')
-
 
 #* console ******************************************************************
 class console (tui.container):
@@ -210,11 +206,11 @@ class console (tui.container):
     Console for commands
     '''
 
-    active_styles = '''
+    ACTIVE_STYLES = '''
             normal=active_console
     '''
 
-    inactive_styles = '''
+    INACTIVE_STYLES = '''
             normal=inactive_console
     '''
 
@@ -222,10 +218,14 @@ class console (tui.container):
         tui.container.__init__(self,
                 wid = wid,
                 direction = tui.container.VERTICAL)
-        self.msg_win = tui.cc_window(init_content = 'This is the console area.',
+        self.msg_win = tui.cc_window(
+                init_content = 'This is the console area.',
                 can_have_focus = False,
-                styles = self.inactive_styles)
-        self.input_win = tui.input_line(styles = self.inactive_styles,
+                styles = self.INACTIVE_STYLES,
+                active_styles = self.ACTIVE_STYLES)
+        self.input_win = tui.input_line(
+                styles = self.INACTIVE_STYLES,
+                active_styles = self.ACTIVE_STYLES,
                 accept_text_func = self._accept_input)
         self.add(self.msg_win)
         self.add(self.input_win, max_size = 1)
@@ -235,16 +235,16 @@ class console (tui.container):
         self.input_win.erase_text()
 
     def on_focus_enter (self):
-        self.msg_win.set_styles(self.active_styles)
-        self.input_win.set_styles(self.active_styles)
+        self.msg_win.select_theme('active')
+        #self.input_win.select_theme('active')
         tui.container.on_focus_enter(self)
-        self.refresh()
+        #self.refresh()
 
     def on_focus_leave (self):
-        self.msg_win.set_styles(self.inactive_styles)
-        self.input_win.set_styles(self.inactive_styles)
+        self.msg_win.select_theme('inactive')
+        #self.input_win.select_theme('inactive')
         tui.container.on_focus_leave(self)
-        self.refresh()
+        #self.refresh()
 
 #* stream_edit_window *******************************************************
 class stream_edit_window (tui.window):
@@ -252,9 +252,50 @@ class stream_edit_window (tui.window):
     This is the window class for stream/file editing.
     '''
 
+    ACTIVE_STYLES = '''
+        default=active_default
+        normal_offset=active_normal_offset
+        negative_offset=active_negative_offset
+        offset_item_sep=active_offset_item_sep
+        known_item=active_known_item
+        uncached_item=active_uncached_item
+        missing_item=active_missing_item
+        item1_sep=active_item1_sep
+        item2_sep=active_item2_sep
+        item4_sep=active_item4_sep
+        item8_sep=active_item8_sep
+        item_char_sep=active_item_char_sep
+        normal_char=active_normal_char
+        altered_char=active_altered_char
+        uncached_char=active_uncached_char
+        missing_char=active_missing_char
+    '''
+
+    INACTIVE_STYLES = '''
+        default=default
+        normal_offset=inactive_normal_offset
+        negative_offset=inactive_negative_offset
+        offset_item_sep=inactive_offset_item_sep
+        known_item=inactive_known_item
+        uncached_item=inactive_uncached_item
+        missing_item=inactive_missing_item
+        item1_sep=inactive_item1_sep
+        item2_sep=inactive_item2_sep
+        item4_sep=inactive_item4_sep
+        item8_sep=inactive_item8_sep
+        item_char_sep=inactive_item_char_sep
+        normal_char=inactive_normal_char
+        altered_char=inactive_altered_char
+        uncached_char=inactive_uncached_char
+        missing_char=inactive_missing_char
+    '''
+
 # stream_edit_window.__init__
     def __init__ (self, stream_cache, stream_uri):
-        tui.window.__init__(self, can_have_focus = True)
+        tui.window.__init__(self,
+                styles = self.INACTIVE_STYLES,
+                active_styles = self.ACTIVE_STYLES,
+                can_have_focus = True)
         cfg = settings_manager(os.path.expanduser('~/.ebfe.ini'))
         self.stream_uri = stream_uri
         self.stream_cache = stream_cache
@@ -270,48 +311,6 @@ class stream_edit_window (tui.window):
         self.show_hex = True
         self.character_display = cfg.get('window: hex edit', 'charmap', 'printable_ascii')
         self.charmap = globals()[self.character_display.upper() + '_CHARMAP']
-        self.prepare_styles()
-
-# stream_edit_window.prepare_styles
-    def prepare_styles (self):
-        if self.in_focus:
-            self.set_styles('''
-                default=active_default
-                normal_offset=active_normal_offset
-                negative_offset=active_negative_offset
-                offset_item_sep=active_offset_item_sep
-                known_item=active_known_item
-                uncached_item=active_uncached_item
-                missing_item=active_missing_item
-                item1_sep=active_item1_sep
-                item2_sep=active_item2_sep
-                item4_sep=active_item4_sep
-                item8_sep=active_item8_sep
-                item_char_sep=active_item_char_sep
-                normal_char=active_normal_char
-                altered_char=active_altered_char
-                uncached_char=active_uncached_char
-                missing_char=active_missing_char
-            ''')
-        else:
-            self.set_styles('''
-                default=default
-                normal_offset=inactive_normal_offset
-                negative_offset=inactive_negative_offset
-                offset_item_sep=inactive_offset_item_sep
-                known_item=inactive_known_item
-                uncached_item=inactive_uncached_item
-                missing_item=inactive_missing_item
-                item1_sep=inactive_item1_sep
-                item2_sep=inactive_item2_sep
-                item4_sep=inactive_item4_sep
-                item8_sep=inactive_item8_sep
-                item_char_sep=inactive_item_char_sep
-                normal_char=inactive_normal_char
-                altered_char=inactive_altered_char
-                uncached_char=inactive_uncached_char
-                missing_char=inactive_missing_char
-            ''')
 
 # stream_edit_window.refresh_strip
     def refresh_strip (self, row, col, width):
@@ -399,9 +398,6 @@ class stream_edit_window (tui.window):
         sw = tui.compute_styled_text_width(stext)
         stext += self.sfmt('{default}{}', ' ' * max(0, self.width  - sw))
         self.put(row, 0, stext, clip_col = col, clip_width = width)
-        if self.in_focus and row == 0:
-            dmsg("hex window - ADD FOCUS CHAR TO THE UPDATE LIST, self: {}, focus: {}, height: {}", self, self.in_focus, self.height)
-            self.write_(0, 0, 'test_focus', '*')
 
 # stream_edit_window.vmove
     def vmove (self, count = 1):
@@ -492,44 +488,41 @@ class stream_edit_window (tui.window):
 
 # stream_edit_window.on_focus_change()
     def on_focus_change (self):
+        tui.window.on_focus_change(self)
         self.set_cursor(tui.CM_INVISIBLE)
-        self.prepare_styles()
-        self.refresh()
 
 #* help_window **************************************************************
 class help_window (tui.cc_window):
-    def __init__ (self):
-        dmsg('help_win')
-        tui.cc_window.__init__(self,
-            init_content = '''
+
+    ACTIVE_STYLES = '''
+        normal=active_help_normal
+        stress=active_help_stress
+        key=active_help_key
+        heading=active_help_heading
+        topic=active_help_topic
+    '''
+
+    INACTIVE_STYLES = '''
+        normal=inactive_help_normal
+        stress=inactive_help_stress
+        key=inactive_help_key
+        heading=inactive_help_heading
+        topic=inactive_help_topic
+    '''
+
+    INIT_CONTENT = '''
 {heading}EBFE - Help
 
   Welcome to {stress}EBFE{normal}!
-            '''.strip())
-        self.can_have_focus = True
-        self.prepare_styles()
+    '''.strip()
 
-    def on_focus_change (self):
-        self.prepare_styles()
-        self.refresh()
-
-    def prepare_styles (self):
-        if self.in_focus:
-            self.set_styles('''
-                normal=active_help_normal
-                stress=active_help_stress
-                key=active_help_key
-                heading=active_help_heading
-                topic=active_help_topic
-            ''')
-        else:
-            self.set_styles('''
-                normal=inactive_help_normal
-                stress=inactive_help_stress
-                key=inactive_help_key
-                heading=inactive_help_heading
-                topic=inactive_help_topic
-            ''')
+    def __init__ (self):
+        dmsg('help_win')
+        tui.cc_window.__init__(self,
+            init_content = self.INIT_CONTENT,
+            styles = self.INACTIVE_STYLES,
+            active_styles = self.ACTIVE_STYLES,
+            can_have_focus = True)
 
 
 DEFAULT_STYLE_MAP = '''

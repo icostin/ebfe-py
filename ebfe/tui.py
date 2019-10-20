@@ -326,7 +326,6 @@ class window (object):
             height = 0,
             styles = 'default',
             active_styles = None,
-            inactive_styles = None,
             can_have_focus = False):
         object.__init__(self)
         if wid is None:
@@ -338,7 +337,7 @@ class window (object):
         self.can_have_focus = can_have_focus
         self.in_focus = False
         self.wipe_updates()
-        self.set_styles(styles)
+        self.set_styles(styles, active_styles)
 
 # window.__str__()
     def __str__ (self):
@@ -349,9 +348,25 @@ class window (object):
         return self.wid
 
 # window.set_styles()
-    def set_styles (self, styles):
-        self.style_markers = generate_style_markers(styles)
-        self.default_style_name = self.style_markers[None]
+    def set_styles (self, styles, active_styles):
+        self.inactive_style_markers = generate_style_markers(styles)
+        self.inactive_default_style_name = self.inactive_style_markers[None]
+        if active_styles is None:
+            self.active_style_markers = self.inactive_style_markers
+            self.active_default_style_name = self.inactive_default_style_name
+        else:
+            self.active_style_markers = generate_style_markers(active_styles)
+            self.active_default_style_name = self.active_style_markers[None]
+        self.style_markers = self.inactive_style_markers
+        self.default_style_name = self.inactive_default_style_name
+
+    def select_theme (self, theme):
+        sm = getattr(self, theme + '_style_markers')
+        dsn = getattr(self, theme + '_default_style_name')
+        if self.style_markers is sm: return
+        self.style_markers = sm
+        self.default_style_name = dsn
+        self.refresh()
 
 # window.subwindows()
     def subwindows (self):
@@ -582,15 +597,11 @@ class window (object):
 
 # window.on_focus_enter()
     def on_focus_enter (self):
-        if hasattr(self, 'active_styles'):
-            self.set_styles(getattr(self, 'active_styles'))
-        return
+        self.select_theme('active')
 
 # window.on_focus_leave()
     def on_focus_leave (self):
-        if hasattr(self, 'inactive_styles'):
-            self.set_styles(getattr(self, 'inactive_styles'))
-        return
+        self.select_theme('inactive')
 
 # window.input_timeout()
     def input_timeout (self):
@@ -993,12 +1004,17 @@ class cc_window (window):
     '''
 
 # cc_window.__init__()
-    def __init__ (self, wid = None, init_content = None, styles = 'default',
+    def __init__ (self,
+            wid = None,
+            init_content = None,
+            styles = 'default',
+            active_styles = None,
             can_have_focus = False):
         window.__init__(self,
                 wid = wid,
                 can_have_focus = can_have_focus,
-                styles = styles)
+                styles = styles,
+                active_styles = active_styles)
         self.content = []
         self.top_row = 0
         if init_content: self.set_content(0, init_content)
@@ -1051,11 +1067,13 @@ class input_line (window):
 # input_line.__init__()
     def __init__ (self,
             styles,
+            active_styles = None,
             accept_text_func = lambda text: text,
             cancel_text_func = lambda : None,
             cursor_mode = CM_NORMAL):
         window.__init__(self,
                 styles = styles,
+                active_styles = active_styles,
                 can_have_focus = True)
         self.text = ''
         self.pos = 0
