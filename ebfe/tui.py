@@ -135,7 +135,6 @@ class driver (object):
         Goes through all update strips and renders them.
         No need to overload this.
         '''
-        show_focus = False
         focus_row = 0
         focus_col = 0
         dmsg('driver: {} updates', len(updates))
@@ -147,14 +146,6 @@ class driver (object):
                     continue
                 if len(s.text) > 0:
                     self.render_text(s.text, s.style_name, s.col, row)
-                    #if not show_focus and s.text[0] == '*' and s.style_name == 'test_focus':
-                    if s.text[0] == '*' and s.style_name == 'test_focus':
-                        show_focus = True
-                        focus_row = row
-                        focus_col = s.col
-                        dmsg("RENDER FOCUS CHAR POSITION -> row: {}, s_col: {}, text: {}, style: {}", row, s.col, s.text[:1], s.style_name)
-        if show_focus:
-            self.render_text('*', 'test_focus', focus_col, focus_row)
         self.finish_render_text()
 
 # driver.render_text()
@@ -334,6 +325,8 @@ class window (object):
             width = 0,
             height = 0,
             styles = 'default',
+            active_styles = None,
+            inactive_styles = None,
             can_have_focus = False):
         object.__init__(self)
         if wid is None:
@@ -357,7 +350,7 @@ class window (object):
 
 # window.set_styles()
     def set_styles (self, styles):
-        self.style_markers = generate_style_markers(styles + ' test_focus')
+        self.style_markers = generate_style_markers(styles)
         self.default_style_name = self.style_markers[None]
 
 # window.subwindows()
@@ -881,7 +874,7 @@ class container (window):
             return False
         self.focused_item = self.focusable_items_[s]
         self.focused_item.window.focus(True)
-        self.integrate_updates(*self._get_item_row_col(self.focused_item), 
+        self.integrate_updates(*self._get_item_row_col(self.focused_item),
                 self.focused_item.window.fetch_updates())
         return True
 
