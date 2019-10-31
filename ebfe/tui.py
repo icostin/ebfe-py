@@ -1,8 +1,16 @@
 import functools
+
 from collections import namedtuple
 
 import zlx.record
+import ebfe.minisgml as minisgml
 from zlx.io import dmsg
+
+#* pred_lookup **************************************************************
+def pred_lookup (array, pred, start = 0):
+    for i in range(start, len(array)):
+        if pred(array, i): return i
+    return None
 
 #* saturate *****************************************************************
 def saturate (x, min_value, max_value):
@@ -1060,6 +1068,122 @@ class cc_window (window):
         self.refresh()
 
 # end cc_window
+
+#* doc_element **************************************************************
+class doc_element (object):
+# doc_element.__init__()
+    def __init__ (self):
+        object.__init__(self)
+        return
+
+
+# doc_element.render()
+    def render (self, col, width):
+        '''
+        produces a list with the contents for each row where each row
+        is represented as a list of strip objects
+        '''
+        return []
+
+# doc_element.compute_min_comfortable_width()
+    def compute_min_comfortable_width (self):
+        '''
+        Computes the minimum width for rendering without breaking elements
+        unnaturally.
+        '''
+        return 1
+
+# doc_element.compute_desired_width()
+    def compute_desired_width (self):
+        return 1
+
+    pass
+
+#* text_doc_elem ************************************************************
+class text_doc_elem (doc_element):
+
+# text_doc_elem.__init__()
+    def __init__ (self, text, style):
+        doc_element.__init__(self)
+        self.text = text
+        self.style = style
+
+# text_doc_elem.compute_min_comfortable_width()
+    def compute_min_comfortable_width (self):
+        return compute_text_width(self.text)
+
+# text_doc_elem.compute_desired_width()
+    def compute_desired_width (self):
+        return compute_text_width(self.text)
+
+#* new_line_doc_elem ********************************************************
+class new_line_doc_elem (doc_element):
+    def compute_min_comfortable_width self):
+        return 0
+    def compute_desired_width (self):
+        return 0
+    def render (self, col, width):
+        return [[], []]
+
+
+#* brk_text_doc_elem ********************************************************
+class brk_text_doc_elem (text_doc_elem):
+# brk_text_doc_elem.compute_min_comfortable_width()
+    def compute_min_comfortable_width (self):
+        return 1
+
+#* seq_doc_elem *************************************************************
+class seq_doc_elem (doc_element):
+
+# seq_doc_elem.__init__()
+    def __init__ (self, sep):
+        doc_element.__init__(self)
+        self.sub_elements = []
+        self.sep = sep
+
+# seq_doc_elem.compute_min_comfortable_width()
+    def compute_min_comfortable_width (self):
+        return max(self.sub_elements, key = lambda e: e.compute_min_comfortable_width())
+
+# seq_doc_elem.compute_desired_width()
+    def compute_desired_width (self):
+        w = self.sep.compute_desired_width() * (len(self.sub_elements) - 1)
+        for e in self.sub_elements:
+            w += e.compute_desired_width()
+
+# seq_doc_elem.extend()
+    def extend (self, l):
+        self.sub_elements.extend(l)
+
+#* doc_elem_list_from_sgml_node *********************************************
+def doc_elem_list_from_sgml_node (n,
+        ):
+    l = []
+    if n.node_type == minisgml.CDATA_NODE:
+        pass
+    elif n.node_type == minisgml.TAG_NODE:
+        pass
+    else:
+        raise error("boo")
+    return l
+
+def parse_doc (text):
+    p = minisgml.sgml_parser(text)
+    r = seq_doc_elem(' ')
+    for n in p.extract_node_list():
+
+
+
+
+#* doc_window ***************************************************************
+class doc_window (window):
+
+# doc_window.__init__()
+    def __init__ (self, wid):
+        window.__init__(self,
+                wid = wid)
+        self.root_elem = doc_element()
+
 
 #* input_line ***************************************************************
 class input_line (window):

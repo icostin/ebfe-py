@@ -14,6 +14,23 @@ def cmd_test (cli):
     print(repr(x))
     #import ebfe.old_tui
     #ebfe.old_tui.main(cli)
+
+    import ebfe.minisgml
+
+    p = ebfe.minisgml.sgml_parser('''
+<doc style="normal">
+Ahem &lt;ahem&gt;
+<h1>Fairytale</h1>
+<p>
+  <b>Once</b> upon a time.
+</p>
+<center>THE END</center>
+</doc>
+    ''')
+    d = p.extract_node_list()
+    for n in d:
+        if n.has_only_whitespaces(): continue
+        print(repr(n))
     return
 
 def boot_driver_curses (cli):
