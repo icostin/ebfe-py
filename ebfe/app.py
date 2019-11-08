@@ -238,12 +238,14 @@ class console (tui.container):
         self.msg_win.select_theme('active')
         #self.input_win.select_theme('active')
         tui.container.on_focus_enter(self)
+        self.integrate_updates(*self._get_item_row_col(self.items_[0]), self.msg_win.fetch_updates())
         #self.refresh()
 
     def on_focus_leave (self):
         self.msg_win.select_theme('inactive')
         #self.input_win.select_theme('inactive')
         tui.container.on_focus_leave(self)
+        self.integrate_updates(*self._get_item_row_col(self.items_[0]), self.msg_win.fetch_updates())
         #self.refresh()
 
 #* stream_edit_window *******************************************************
