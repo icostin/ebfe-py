@@ -241,6 +241,21 @@ def split_strip (s, col):
         return (strip(s.text[:i], s.style_name, s.col), strip(s.text[i:], s.style_name, col))
     return (s,)
 
+def trim_strips (sl, col, width = None, end_col = None):
+    if end_col is None:
+        end_col = col + width
+    r = []
+    for s in sl:
+        if s.col >= end_col: break
+        strip_end_col = s.col + compute_text_width(s.text)
+        if strip_end_col <= col: continue
+        if s.col < col:
+            s = split_strip(s, col)[1]
+        if strip_end_col > end_col:
+            s = split_strip(s, end_col)[0]
+        r.append(s)
+    return r
+
 #* cursor_update ************************************************************
 cursor_update = zlx.record.make('tui.cursor_update', 'mode row col')
 
@@ -377,13 +392,13 @@ class window (object):
         self.style_markers = self.inactive_style_markers
         self.default_style_name = self.inactive_default_style_name
 
-    def select_theme (self, theme):
+    def select_theme (self, theme, do_refresh = True):
         sm = getattr(self, theme + '_style_markers')
         dsn = getattr(self, theme + '_default_style_name')
         if self.style_markers is sm: return
         self.style_markers = sm
         self.default_style_name = dsn
-        self.refresh()
+        if do_refresh: self.refresh()
 
 # window.subwindows()
     def subwindows (self):
@@ -397,15 +412,19 @@ class window (object):
         '''
         self.updates = {}
 
-# window.write_()
-    def write_ (self, row, col, style_name, text):
+# window._write_strips()
+    def _write_strips (self, row, strips):
+        if row not in self.updates:
+            self.updates[row] = []
+        self.updates[row].extend(strips)
+
+# window._write()
+    def _write (self, row, col, style_name, text):
         '''
         Adds the given text in the right place in the updates field.
         No need to overload this.
         '''
-        if row not in self.updates:
-            self.updates[row] = []
-        self.updates[row].append(strip(text, style_name, col))
+        self._write_strips(row, (strip(text, style_name, col),))
         #dmsg('win={!r}({}x{}) write strip: row={} col={} style={!r} text={!r}', self, self.width, self.height, row, col, style_name, text)
 
 # window.write()
@@ -430,7 +449,7 @@ class window (object):
         if col >= clip_end_col: return
         i = compute_index_of_column(text, clip_end_col - col)
         if i is not None: text = text[:i]
-        self.write_(row, col, style_name, text)
+        self._write(row, col, style_name, text)
 
 # window.sfmt()
     def sfmt (self, fmt, *l, **kw):
@@ -485,7 +504,7 @@ class window (object):
         for row in updates:
             for u in updates[row]:
                 if isinstance(u, strip):
-                    self.write_(row + row_delta, u.col + col_delta, u.style_name, u.text)
+                    self._write(row + row_delta, u.col + col_delta, u.style_name, u.text)
                 elif isinstance(u, cursor_update):
                     if self.in_focus:
                         self.set_cursor(u.mode, u.row + row_delta, u.col + col_delta)
@@ -1101,6 +1120,108 @@ class cc_window (window):
         self.refresh()
 
 # end cc_window
+
+#* simple_doc_window ********************************************************
+class simple_doc_window (window):
+
+    def __init__ (self,
+            wid = None,
+            styles = 'default',
+            active_styles = None,
+            doc_fmt = '',
+            doc_kwargs = {},
+            can_have_focus = True):
+        window.__init__(self,
+                wid = wid,
+                styles = styles,
+                active_styles = active_styles,
+                can_have_focus = can_have_focus)
+        self.set_doc(doc_fmt, **doc_kwargs)
+        self.display_top_row = 0
+
+    def _reset_content (self):
+        self.content_ = []
+        self.last_row_ = []
+        self.last_row_width_ = 0
+        self.content_.append(self.last_row_)
+
+    def _fill_to_eol (self):
+        if self.last_row_width_ < self.width:
+            self.last_row_.append(
+                strip(' ' * (self.width - self.last_row_width_),
+                    self.default_style_name, self.last_row_width_))
+            self.last_row_width_ = self.width
+
+
+    def _new_row (self):
+        self._fill_to_eol()
+        self.last_row_ = []
+        self.last_row_width_ = 0
+        self.content_.append(self.last_row_)
+
+    def _add_text (self, style, text):
+        if self.last_row_ and self.last_row_[-1].style_name == style:
+            self.last_row_[-1].text += text
+        else:
+            self.last_row_.append(strip(text, style, self.last_row_width_))
+        self.last_row_width_ += compute_text_width(text)
+
+    def _render (self):
+        if self.width < 1: return
+        self.empty_row_strips_ = [strip(' ' * self.width, self.default_style_name, 0)]
+        self._reset_content()
+        doc = self.doc_fmt.format(**self.doc_kwargs, **self.style_markers)
+        mode = 'verbatim'
+        current_style = self.default_style_name
+        for style, text in styled_text_chunks(doc, self.default_style_name):
+            if style == 'verbatim': mode = 'verbatim'
+            elif style == 'par':
+                mode = 'paragraph'
+                self._new_row()
+            else: current_style = style
+            if mode == 'verbatim':
+                while text:
+                    if '\n' in text:
+                        t, r = text.split('\n', 1)
+                        self._add_text(style, t)
+                        self._new_row()
+                        text = r
+                    else:
+                        self._add_text(style, text)
+                        break
+            elif mode == 'paragraph':
+                pass
+        self._fill_to_eol()
+
+    def on_resize (self, width = None, height = None):
+        self._render()
+        self.refresh()
+
+# simple_doc_window.on_focus_enter()
+    def on_focus_enter (self):
+        self.select_theme('active', do_refresh = False)
+        self._render()
+        self.refresh()
+
+# simple_doc_window.on_focus_leave()
+    def on_focus_leave (self):
+        self.select_theme('inactive')
+        self._render()
+        self.refresh()
+
+    def set_doc (self, fmt, **kwargs):
+        self.doc_fmt = fmt
+        self.doc_kwargs = kwargs
+        self._render()
+
+    def refresh_strip (self, row, col, width):
+        r = self.display_top_row + row
+        if r >= 0 and r < len(self.content_):
+            self._write_strips(row, trim_strips(self.content_[r], col, width))
+        else:
+            self._write(row, col, self.default_style_name, ' ' * width)
+
+
 
 #* input_line ***************************************************************
 class input_line (window):

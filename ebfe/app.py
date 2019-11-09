@@ -501,7 +501,7 @@ class stream_edit_window (tui.window):
         self.set_cursor(tui.CM_INVISIBLE)
 
 #* help_window **************************************************************
-class help_window (tui.cc_window):
+class help_window (tui.simple_doc_window):
 
     ACTIVE_STYLES = '''
         normal=active_help_normal
@@ -520,15 +520,20 @@ class help_window (tui.cc_window):
     '''
 
     INIT_CONTENT = '''
-{heading}EBFE - Help
+{heading}EBFE - Help{normal}
+
 
   Welcome to {stress}EBFE{normal}!
+While we absolutely love the Unix phylosophy and you totally deserve a steep
+learning curve whenever you try some new piece software, allow us to insult
+you with some default key-mappings to keep you going:
+{key}Alt-x{normal}  exit
     '''.strip()
 
     def __init__ (self):
         dmsg('help_win')
-        tui.cc_window.__init__(self,
-            init_content = self.INIT_CONTENT,
+        tui.simple_doc_window.__init__(self,
+            doc_fmt = self.INIT_CONTENT,
             styles = self.INACTIVE_STYLES,
             active_styles = self.ACTIVE_STYLES,
             can_have_focus = True)
@@ -579,10 +584,10 @@ DEFAULT_STYLE_MAP = '''
     inactive_console attr=normal fg=7 bg=black
     test_focus attr=normal fg=7 bg=1
 
-    active_help_normal attr=normal fg=7 bg=6
+    active_help_normal attr=normal fg=15 bg=6
     active_help_stress attr=normal fg=11 bg=6
     active_help_key attr=normal fg=10 bg=6
-    active_help_heading attr=normal fg=15 bg=6
+    active_help_heading attr=normal fg=5 bg=6
     active_help_topic attr=normal fg=5 bg=6
 
     inactive_help_normal attr=normal fg=7 bg=0
