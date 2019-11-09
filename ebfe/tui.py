@@ -12,6 +12,12 @@ def saturate (x, min_value, max_value):
     '''
     return max(min(x, max_value), min_value)
 
+def ab_intersects_cd (a, b, c, d):
+    return a < d and b > c
+
+def ab_inside_cd (a, b, c, d):
+    return a >= c and b <= d
+
 #* error ********************************************************************
 class error (RuntimeError):
     def __init__ (self, fmt, *a, **b):
@@ -223,6 +229,17 @@ def parse_styles (caps, src):
 
 #* strip ********************************************************************
 strip = zlx.record.make('tui.strip', 'text style_name col')
+
+def split_strip (s, col):
+    '''
+    returns a tuple of one or two strips by splitting the given strip
+    at the given column.
+    '''
+    w = compute_text_width(s.text)
+    if col > s.col and col < s.col + w:
+        i = compute_index_of_column(s.text, col - s.col)
+        return (strip(s.text[:i], s.style_name, s.col), strip(s.text[i:], s.style_name, col))
+    return (s,)
 
 #* cursor_update ************************************************************
 cursor_update = zlx.record.make('tui.cursor_update', 'mode row col')
@@ -438,6 +455,30 @@ class window (object):
             self.updates[row] = []
         self.updates[row].append(cursor_update(mode, row, col))
         return
+
+    def update_style (self, row, col, width, restyler):
+        if isinstance(restyler, str):
+            restyler = lambda x, y=restyler: y
+        ur = []
+        for s in self.updates.get(row, ()):
+            w = compute_text_width(s.text)
+            if ab_intersects_cd(s.col, s.col + w, col, col + width):
+                if ab_inside_cd(s.col, s.col + w, col, col + width):
+                    s.style_name = restyler(s)
+                    ur.append(s)
+                else:
+                    l = split_strip(s, col)
+                    l2 = []
+                    for i in l:
+                        l2.extend(split_strip(i, col + width))
+                    for s in l2:
+                        w = compute_text_width(s.text)
+                        if ab_inside_cd(s.col, s.col + w, col, col + width):
+                            s.style_name = restyler(s)
+                        ur.append(s)
+            else:
+                ur.append(s)
+        if ur: self.updates[row] = ur
 
 # window.integrate_updates()
     def integrate_updates (self, row_delta, col_delta, updates):

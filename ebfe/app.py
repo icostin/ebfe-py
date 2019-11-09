@@ -313,6 +313,7 @@ class stream_edit_window (tui.window):
         self.show_hex = True
         self.character_display = cfg.get('window: hex edit', 'charmap', 'printable_ascii')
         self.charmap = globals()[self.character_display.upper() + '_CHARMAP']
+        self.temp_demo_update_strip = True
 
 # stream_edit_window.refresh_strip
     def refresh_strip (self, row, col, width):
@@ -400,6 +401,9 @@ class stream_edit_window (tui.window):
         sw = tui.compute_styled_text_width(stext)
         stext += self.sfmt('{default}{}', ' ' * max(0, self.width  - sw))
         self.put(row, 0, stext, clip_col = col, clip_width = width)
+        if self.temp_demo_update_strip and row == 3:
+            self.update_style(row, 3, 6, 'normal_title')
+            self.update_style(row, 11, 21, lambda s: 'in' + s.style_name if s.style_name.startswith('active') else s.style_name)
 
 # stream_edit_window.vmove
     def vmove (self, count = 1):
@@ -478,6 +482,9 @@ class stream_edit_window (tui.window):
         elif key in ('>', 'l'): self.shift_offset(+1)
         elif key in ('_',): self.adjust_items_per_line(-1)
         elif key in ('+',): self.adjust_items_per_line(+1)
+        elif key in ('T',):
+            self.temp_demo_update_strip = not self.temp_demo_update_strip
+            self.refresh(start_row = 3, height = 1)
         elif key in ('Enter',): self.cycle_modes()
         elif key in ('Ctrl-F', ' '): self.vmove(self.height - 3) # Ctrl-F
         elif key in ('Ctrl-B',): self.vmove(-(self.height - 3)) # Ctrl-B
