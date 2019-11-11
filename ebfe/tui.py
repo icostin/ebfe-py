@@ -280,7 +280,7 @@ STYLE_END = '\b'
 def styled_text_chunks (styled_text, initial_style = 'default'):
     for x in ''.join((initial_style, STYLE_END, styled_text)).split(STYLE_BEGIN):
         style, text = x.split(STYLE_END, 1)
-        if not text: continue
+        #if not text: continue
         yield (style, text)
 
 #* strip_styles_from_styled_text ********************************************
@@ -1159,37 +1159,88 @@ class simple_doc_window (window):
         self.last_row_width_ = 0
         self.content_.append(self.last_row_)
 
-    def _add_text (self, style, text):
+    def _add_text (self, text, style = None):
+        if style is None:
+            style = self.last_row_[-1].style_name
         if self.last_row_ and self.last_row_[-1].style_name == style:
             self.last_row_[-1].text += text
         else:
             self.last_row_.append(strip(text, style, self.last_row_width_))
         self.last_row_width_ += compute_text_width(text)
 
+
+    STYLE_CMDS = dict(
+            par = ''.join((STYLE_BEGIN, 'paragraph', STYLE_END)),
+            br = ''.join((STYLE_BEGIN, 'br', STYLE_END)),
+            cpar = ''.join((STYLE_BEGIN, 'continue-paragraph', STYLE_END)),
+            verbatim = ''.join((STYLE_BEGIN, 'verbatim', STYLE_END)),
+            )
     def _render (self):
         if self.width < 1: return
         self.empty_row_strips_ = [strip(' ' * self.width, self.default_style_name, 0)]
         self._reset_content()
-        doc = self.doc_fmt.format(**self.doc_kwargs, **self.style_markers)
+        doc = self.doc_fmt.format(**self.STYLE_CMDS, **self.doc_kwargs, **self.style_markers)
         mode = 'verbatim'
         current_style = self.default_style_name
         for style, text in styled_text_chunks(doc, self.default_style_name):
-            if style == 'verbatim': mode = 'verbatim'
-            elif style == 'par':
+            if style == 'verbatim':
+                mode = 'verbatim'
+            elif style == 'continue-paragraph':
+                mode = 'paragraph'
+            elif style == 'paragraph':
                 mode = 'paragraph'
                 self._new_row()
-            else: current_style = style
+            elif style == 'br':
+                self._new_row()
+                mode = 'paragraph'
+            else:
+                current_style = style
             if mode == 'verbatim':
                 while text:
                     if '\n' in text:
                         t, r = text.split('\n', 1)
-                        self._add_text(style, t)
+                        self._add_text(t, current_style)
                         self._new_row()
                         text = r
                     else:
-                        self._add_text(style, text)
+                        self._add_text(text, current_style)
                         break
             elif mode == 'paragraph':
+                first_para = True
+                text += '\x01'
+                for paragraph in text.split('\n\n'):
+                    first = True
+                    if first_para:
+                        first_para = False
+                    else:
+                        self._new_row()
+                    for text_chunk in paragraph.split():
+                        if text_chunk.endswith('\x01'):
+                            text_chunk = text_chunk[:-1]
+                        tw = compute_text_width(text_chunk)
+                        spc = 0 if first else 1
+                        first = False
+                        if self.last_row_width_ + tw + spc <= self.width:
+                            if spc:
+                                self._add_text(' ', current_style)
+                            self._add_text(text_chunk, current_style)
+                            continue
+                        if tw <= self.width:
+                            self._new_row()
+                            self._add_text(text_chunk, current_style)
+                            continue
+                        if spc:
+                            if self.last_row_width_ and self.last_row_width_ + 1 + spc <= self.width:
+                                self._add_text(' ')
+                            else:
+                                self._new_row()
+                        while text_chunk:
+                            i = compute_index_of_column(text_chunk, self.width - self.last_row_width_)
+                            if i is None: i = len(text_width)
+                            self._add_text(text_chunk[:i], current_style)
+                            text_chunk = text_chunk[i:]
+                            if self.last_row_width_ == self.width:
+                                self._new_row()
                 pass
         self._fill_to_eol()
 
