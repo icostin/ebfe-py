@@ -1145,16 +1145,16 @@ class simple_doc_window (window):
         self.last_row_width_ = 0
         self.content_.append(self.last_row_)
 
-    def _fill_to_eol (self):
+    def _fill_to_eol (self, fill_char = ' '):
         if self.last_row_width_ < self.width:
             self.last_row_.append(
-                strip(' ' * (self.width - self.last_row_width_),
+                strip(fill_char * (self.width - self.last_row_width_),
                     self.default_style_name, self.last_row_width_))
             self.last_row_width_ = self.width
 
 
-    def _new_row (self):
-        self._fill_to_eol()
+    def _new_row (self, fill_char = ' '):
+        self._fill_to_eol(fill_char)
         self.last_row_ = []
         self.last_row_width_ = 0
         self.content_.append(self.last_row_)
@@ -1172,8 +1172,11 @@ class simple_doc_window (window):
     STYLE_CMDS = dict(
             par = ''.join((STYLE_BEGIN, 'paragraph', STYLE_END)),
             br = ''.join((STYLE_BEGIN, 'br', STYLE_END)),
+            hr = ''.join((STYLE_BEGIN, 'hr', STYLE_END)),
             cpar = ''.join((STYLE_BEGIN, 'continue-paragraph', STYLE_END)),
             verbatim = ''.join((STYLE_BEGIN, 'verbatim', STYLE_END)),
+            code = ''.join((STYLE_BEGIN, 'verbatim', STYLE_END)),
+            pre = ''.join((STYLE_BEGIN, 'pre', STYLE_END)),
             )
     def _render (self):
         if self.width < 1: return
@@ -1185,6 +1188,9 @@ class simple_doc_window (window):
         for style, text in styled_text_chunks(doc, self.default_style_name):
             if style == 'verbatim':
                 mode = 'verbatim'
+            elif style == 'pre':
+                mode = 'verbatim'
+                self._new_row()
             elif style == 'continue-paragraph':
                 mode = 'paragraph'
             elif style == 'paragraph':
@@ -1193,6 +1199,10 @@ class simple_doc_window (window):
             elif style == 'br':
                 self._new_row()
                 mode = 'paragraph'
+            elif style == 'hr':
+                if self.last_row_width_ > 0:
+                    self._new_row()
+                self._new_row('-')
             else:
                 current_style = style
             if mode == 'verbatim':

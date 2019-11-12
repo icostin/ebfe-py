@@ -543,8 +543,7 @@ key-mappings to keep you going before you hit the shelves.
 
 {par}{stress}Hex editor window keys:{br}
 {key}Up{normal}, {key}k{normal}{verbatim}   {cpar}move up
-
------------------------------------------------------------------------
+{hr}
     '''.strip()
 
     def __init__ (self):
@@ -608,9 +607,9 @@ DEFAULT_STYLE_MAP = '''
     active_help_topic attr=normal fg=5 bg=6
 
     inactive_help_normal attr=normal fg=7 bg=0
-    inactive_help_stress attr=normal fg=11 bg=0
+    inactive_help_stress attr=normal fg=15 bg=0
     inactive_help_key attr=normal fg=10 bg=0
-    inactive_help_heading attr=normal fg=15 bg=0
+    inactive_help_heading attr=normal fg=11 bg=0
     inactive_help_topic attr=normal fg=5 bg=0
 '''
 
