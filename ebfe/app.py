@@ -415,7 +415,17 @@ class stream_edit_window (tui.window):
             self.update_style(row, strip_bin_offset * 3 + extra_offset, 2, 'normal_title')
 
 # stream_edit_window.move_cursor
+    def move_cursor_to_offset (self, ofs, percentage=50):
+        shift = self.stream_offset % self.items_per_line
+        half = ((self.height * percentage) // 100) * self.items_per_line
+        self.stream_offset = ofs - half + shift
+        self.cursor_offset = ofs
+        self.cursor_strip = (ofs - self.stream_offset) // self.items_per_line
+        self.refresh()
+
+# stream_edit_window.move_cursor
     def move_cursor (self, x, y):
+        old_strip = self.cursor_strip
         new_offset = self.cursor_offset + x + (y * self.items_per_line)
         # If new offset for cursor is negative then we don't update anything
         if new_offset < 0:
@@ -436,12 +446,19 @@ class stream_edit_window (tui.window):
         else:
             # if cursor move doesn't require a window scroll then refresh a maximum of three lines
             self.cursor_strip = strip
-            if strip == 0:
-                self.refresh(start_row = 0, height = 2)
-            elif strip == self.height - 1:
-                self.refresh(start_row = self.height-2, height = 2)
+
+            if old_strip == strip:
+                self.refresh(start_row = strip, height = 1)
             else:
-                self.refresh(start_row = strip-1, height = 3)
+                self.refresh(start_row = old_strip, height = 1)
+                self.refresh(start_row = strip, height = 1)
+
+            #if strip == 0:
+            #    self.refresh(start_row = 0, height = 2)
+            #elif strip == self.height - 1:
+            #    self.refresh(start_row = self.height-2, height = 2)
+            #else:
+            #    self.refresh(start_row = strip-1, height = 3)
 
 # stream_edit_window.vmove
     def vmove (self, count = 1):
@@ -534,6 +551,10 @@ class stream_edit_window (tui.window):
         elif key in ('T',):
             self.temp_demo_update_strip = not self.temp_demo_update_strip
             self.refresh(start_row = 3, height = 1)
+        elif key in ('H',):
+            #self.cursor_offset = 0x500
+            #self.move_cursor(0, 0)
+            self.move_cursor_to_offset(0x500, percentage=80)
         elif key in ('Enter',): self.cycle_modes()
         elif key in ('Ctrl-F', ' '): self.vmove(self.height - 3) # Ctrl-F
         elif key in ('Ctrl-B',): self.vmove(-(self.height - 3)) # Ctrl-B
