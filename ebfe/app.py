@@ -412,7 +412,11 @@ class stream_edit_window (tui.window):
             strip_bin_offset =self.cursor_offset - (self.stream_offset + (self.items_per_line * row))
             extra_offset_hex = strip_bin_offset // self.column_size
             extra_offset_hex += 10      # skip the offset
-            extra_offset_ascii = 14      # skip the offset
+
+            extra_offset_ascii = self.items_per_line // self.column_size
+            if self.items_per_line % self.column_size > 0:
+                extra_offset_ascii += 1
+            extra_offset_ascii += 10      # skip the offset
             extra_offset_ascii += self.items_per_line * 3
 
             self.update_style(row, strip_bin_offset * 3 + extra_offset_hex, 2, 'normal_title')
