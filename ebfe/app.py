@@ -414,7 +414,7 @@ class stream_edit_window (tui.window):
             extra_offset += 10      # skip the offset
             self.update_style(row, strip_bin_offset * 3 + extra_offset, 2, 'normal_title')
 
-# stream_edit_window.move_cursor
+# stream_edit_window.move_cursor_to_offset
     def move_cursor_to_offset (self, ofs, percentage=50):
         shift = self.stream_offset % self.items_per_line
         half = ((self.height * percentage) // 100) * self.items_per_line
@@ -437,11 +437,11 @@ class stream_edit_window (tui.window):
         # if the strip is negative then we just set it to 0 and scroll up the window
         if strip < 0:
             self.cursor_strip = 0
-            self.stream_offset -= self.items_per_line
+            self.stream_offset -= -strip * self.items_per_line
             self.refresh()
         elif strip > self.height-1:
             self.cursor_strip = self.height-1
-            self.stream_offset += self.items_per_line
+            self.stream_offset += (strip - (self.height - 1)) * self.items_per_line
             self.refresh()
         else:
             # if cursor move doesn't require a window scroll then refresh a maximum of three lines
@@ -514,26 +514,26 @@ class stream_edit_window (tui.window):
 
 # stream_edit_window.jump_to_end
     def jump_to_end (self):
-        n = self.items_per_line
-        end_offset = self.stream_cache.get_known_end_offset()
-        if self.stream_offset <= end_offset \
-                and end_offset < self.stream_offset + self.height * n:
-            return
-        start_ofs_mod = self.stream_offset % n
-        bottom_offset = (end_offset - start_ofs_mod + n - 1) // n * n + start_ofs_mod
-        self.stream_offset = bottom_offset - n * self.height
-        if self.stream_offset <= start_ofs_mod - n:
-            self.stream_offset = start_ofs_mod
+        #n = self.items_per_line
+        #end_offset = self.stream_cache.get_known_end_offset()
+        #if self.stream_offset <= end_offset \
+        #        and end_offset < self.stream_offset + self.height * n:
+        #    return
+        #start_ofs_mod = self.stream_offset % n
+        #bottom_offset = (end_offset - start_ofs_mod + n - 1) // n * n + start_ofs_mod
+        #self.stream_offset = bottom_offset - n * self.height
+        #if self.stream_offset <= start_ofs_mod - n:
+        #    self.stream_offset = start_ofs_mod
         self.cursor_offset = self.stream_cache.get_known_end_offset() - 1
         self.move_cursor(0, 0)
         self.refresh()
 
 # stream_edit_window.jump_to_begin
     def jump_to_begin (self):
-        n = self.items_per_line
-        self.stream_offset = self.stream_offset % n
-        if self.stream_offset > 0:
-            self.stream_offset -= n;
+        #n = self.items_per_line
+        #self.stream_offset = self.stream_offset % n
+        #if self.stream_offset > 0:
+        #    self.stream_offset -= n;
         self.cursor_offset = 0
         self.move_cursor(0, 0)
         self.refresh()
