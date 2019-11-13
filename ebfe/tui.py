@@ -1168,17 +1168,54 @@ class simple_doc_window (window):
             self.last_row_.append(strip(text, style, self.last_row_width_))
         self.last_row_width_ += compute_text_width(text)
 
+    def _justify_last_row (self):
+        dmsg('enter justifying: {!r}', self.last_row_)
+        dmsg('width={}', self.last_row_width_)
+        while self.last_row_width_ < self.width:
+            skip_start_ws = True
+            col = 0
+            n = self.width - self.last_row_width_
+            for s in self.last_row_:
+                dmsg('justifying: {!r}, n={}', s.text, n)
+                s.col = col
+                tl = []
+                for ch in s.text:
+                    tl.append(ch)
+                    if ch.isspace():
+                        if skip_start_ws: continue
+                        if n:
+                            dmsg('insert space')
+                            tl.append(' ')
+                            n -= 1
+                    else:
+                        #dmsg('skip_ws off')
+                        skip_start_ws = False
+                s.text = ''.join(tl)
+                dmsg('justified: {!r}', s.text)
+                col += compute_text_width(s.text)
+            dmsg('new width: {}', col)
+            if col == self.last_row_width_:
+                # could not insert any space, give up
+                break
+            self.last_row_width_ = col
+        dmsg('exit justifying: {!r}', self.last_row_)
+        return
+
+
 
     STYLE_CMDS = dict(
             par = ''.join((STYLE_BEGIN, 'paragraph', STYLE_END)),
             br = ''.join((STYLE_BEGIN, 'br', STYLE_END)),
             hr = ''.join((STYLE_BEGIN, 'hr', STYLE_END)),
             cpar = ''.join((STYLE_BEGIN, 'continue-paragraph', STYLE_END)),
+            justify = ''.join((STYLE_BEGIN, 'justify', STYLE_END)),
+            no_justify = ''.join((STYLE_BEGIN, 'no_justify', STYLE_END)),
             verbatim = ''.join((STYLE_BEGIN, 'verbatim', STYLE_END)),
             code = ''.join((STYLE_BEGIN, 'verbatim', STYLE_END)),
             pre = ''.join((STYLE_BEGIN, 'pre', STYLE_END)),
             indent = ''.join((STYLE_BEGIN, 'indent', STYLE_END)),
             tab = ''.join((STYLE_BEGIN, 'indent', STYLE_END)),
+            wrap_indent = ''.join((STYLE_BEGIN, 'wrap_indent', STYLE_END)),
             )
     def _render (self):
         if self.width < 1: return
@@ -1187,6 +1224,8 @@ class simple_doc_window (window):
         doc = self.doc_fmt.format(**self.STYLE_CMDS, **self.doc_kwargs, **self.style_markers)
         mode = 'verbatim'
         current_style = self.default_style_name
+        wrap_indent = 0
+        justify = False
         for style, text in styled_text_chunks(doc, self.default_style_name):
             if style == 'verbatim':
                 mode = 'verbatim'
@@ -1197,6 +1236,8 @@ class simple_doc_window (window):
                 mode = 'paragraph'
             elif style == 'paragraph':
                 mode = 'paragraph'
+                wrap_indent = 0
+                justify = False
                 self._new_row()
             elif style == 'br':
                 self._new_row()
@@ -1205,6 +1246,13 @@ class simple_doc_window (window):
                 if self.last_row_width_ > 0:
                     self._new_row()
                 self._new_row('-')
+            elif style == 'wrap_indent':
+                wrap_indent = int(text)
+                continue
+            elif style == 'justify':
+                justify = True
+            elif style == 'no_justify':
+                justify = False
             elif style == 'indent':
                 n = int(text)
                 m = (self.last_row_width_ + n) // n * n
@@ -1247,8 +1295,12 @@ class simple_doc_window (window):
                                 self._add_text(' ', current_style)
                             self._add_text(text_chunk, current_style)
                             continue
-                        if tw <= self.width:
+                        if wrap_indent + tw <= self.width:
+                            if justify:
+                                self._justify_last_row()
                             self._new_row()
+                            if wrap_indent:
+                                self._add_text(' ' * wrap_indent, current_style)
                             self._add_text(text_chunk, current_style)
                             continue
                         if spc:

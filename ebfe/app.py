@@ -598,9 +598,11 @@ class help_window (tui.simple_doc_window):
     '''
 
     INIT_CONTENT = '''
+{br}
 {heading}EBFE - Help{normal}
 
-{par}Welcome to {stress}EBFE{normal}!
+{par}{justify}
+Welcome to {stress}EBFE{normal}!
 
 
 
@@ -612,7 +614,7 @@ for trying some new piece software, allow us to insult your tarot abilities
 with some default key-mappings to keep you going before you hit the shelves.
 
 
-{par}{stress}Global keys:{br}
+{par}{wrap_indent}8{stress}Global keys:{br}
 {key}Esc{normal}{tab}8{cpar}    close/cancel/exit from current activity{br}
 {key}Tab{normal}{tab}8{cpar}    cycle focus between windows{br}
 {key}:{normal}{tab}8{cpar}      open (or switch to) command window{br}
