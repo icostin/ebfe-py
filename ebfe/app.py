@@ -416,9 +416,10 @@ class stream_edit_window (tui.window):
 
 # stream_edit_window.move_cursor_to_offset
     def move_cursor_to_offset (self, ofs, percentage=50):
-        shift = self.stream_offset % self.items_per_line
+        stream_shift = self.stream_offset % self.items_per_line
+        shift = ofs % self.items_per_line
         half = ((self.height * percentage) // 100) * self.items_per_line
-        self.stream_offset = ofs - half + shift
+        self.stream_offset = ofs - half - shift + stream_shift
         self.cursor_offset = ofs
         self.cursor_strip = (ofs - self.stream_offset) // self.items_per_line
         self.refresh()
@@ -444,7 +445,7 @@ class stream_edit_window (tui.window):
             self.stream_offset += (strip - (self.height - 1)) * self.items_per_line
             self.refresh()
         else:
-            # if cursor move doesn't require a window scroll then refresh a maximum of three lines
+            # if cursor move doesn't require a window scroll then refresh a maximum of two lines
             self.cursor_strip = strip
 
             if old_strip == strip:
@@ -452,13 +453,6 @@ class stream_edit_window (tui.window):
             else:
                 self.refresh(start_row = old_strip, height = 1)
                 self.refresh(start_row = strip, height = 1)
-
-            #if strip == 0:
-            #    self.refresh(start_row = 0, height = 2)
-            #elif strip == self.height - 1:
-            #    self.refresh(start_row = self.height-2, height = 2)
-            #else:
-            #    self.refresh(start_row = strip-1, height = 3)
 
 # stream_edit_window.vmove
     def vmove (self, count = 1):
@@ -524,8 +518,9 @@ class stream_edit_window (tui.window):
         #self.stream_offset = bottom_offset - n * self.height
         #if self.stream_offset <= start_ofs_mod - n:
         #    self.stream_offset = start_ofs_mod
-        self.cursor_offset = self.stream_cache.get_known_end_offset() - 1
-        self.move_cursor(0, 0)
+        self.move_cursor_to_offset(self.stream_cache.get_known_end_offset() - 1, 90)
+        #self.cursor_offset = self.stream_cache.get_known_end_offset() - 1
+        #self.move_cursor(0, 0)
         self.refresh()
 
 # stream_edit_window.jump_to_begin
