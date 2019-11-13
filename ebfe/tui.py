@@ -1177,6 +1177,8 @@ class simple_doc_window (window):
             verbatim = ''.join((STYLE_BEGIN, 'verbatim', STYLE_END)),
             code = ''.join((STYLE_BEGIN, 'verbatim', STYLE_END)),
             pre = ''.join((STYLE_BEGIN, 'pre', STYLE_END)),
+            indent = ''.join((STYLE_BEGIN, 'indent', STYLE_END)),
+            tab = ''.join((STYLE_BEGIN, 'indent', STYLE_END)),
             )
     def _render (self):
         if self.width < 1: return
@@ -1203,6 +1205,16 @@ class simple_doc_window (window):
                 if self.last_row_width_ > 0:
                     self._new_row()
                 self._new_row('-')
+            elif style == 'indent':
+                n = int(text)
+                m = (self.last_row_width_ + n) // n * n
+                if m >= self.width:
+                    self._new_row()
+                    o = n
+                else:
+                    o = m - self.last_row_width_
+                self._add_text(' ' * o, current_style)
+                continue
             else:
                 current_style = style
             if mode == 'verbatim':

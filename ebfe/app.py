@@ -530,19 +530,21 @@ class help_window (tui.simple_doc_window):
 While we absolutely love the Unix phylosophy, minimalism in design
 sometimes manifests itself in the form of books to describe the subject
 (see 'How to exit Vim'). While you totally deserve a steep learning curve
-for trying some new piece software, allow us to insult you with some default
-key-mappings to keep you going before you hit the shelves.
+for trying some new piece software, allow us to insult your tarot abilities
+with some default key-mappings to keep you going before you hit the shelves.
 
 
 {par}{stress}Global keys:{br}
-{key}Alt-x{normal}{verbatim}  {cpar}exit{br}
-{key}Esc{normal}{verbatim}    {cpar}close/cancel/exit from current activity{br}
-{key}Tab{normal}{verbatim}    {cpar}cycle focus between windows{br}
-{key}:{normal}{verbatim}      {cpar}open (or switch to) command window
+{key}Esc{normal}{tab}8{cpar}    close/cancel/exit from current activity{br}
+{key}Tab{normal}{tab}8{cpar}    cycle focus between windows{br}
+{key}:{normal}{tab}8{cpar}      open (or switch to) command window{br}
+{key}F1{normal}{tab}8{cpar}     toggle this help window{br}
+{key}Alt-x{normal}{tab}8{cpar}  exit{br}
 
 
 {par}{stress}Hex editor window keys:{br}
-{key}Up{normal}, {key}k{normal}{verbatim}   {cpar}move up
+{key}Up{normal}, {key}k{normal}{tab}12{cpar}    move up{br}
+{key}Down{normal}, {key}j{normal}{tab}12{cpar}  move down{br}
 {hr}
     '''.strip()
 
