@@ -302,6 +302,8 @@ class stream_edit_window (tui.window):
         self.stream_uri = stream_uri
         self.stream_cache = stream_cache
         self.stream_offset = 0
+        self.cursor_offset = 0
+        self.cursor_strip = 0
         #self.offset_format = '{:+08X}: '
         self.items_per_line = cfg.iget('window: hex edit', 'items_per_line', 16)
         self.prev_items_per_line = self.items_per_line
@@ -401,16 +403,74 @@ class stream_edit_window (tui.window):
         sw = tui.compute_styled_text_width(stext)
         stext += self.sfmt('{default}{}', ' ' * max(0, self.width  - sw))
         self.put(row, 0, stext, clip_col = col, clip_width = width)
+
         if self.temp_demo_update_strip and row == 3:
             self.update_style(row, 3, 6, 'normal_title')
             self.update_style(row, 11, 21, lambda s: 'in' + s.style_name if s.style_name.startswith('active') else s.style_name)
+
+        if row == self.cursor_strip:
+            strip_bin_offset =self.cursor_offset - (self.stream_offset + (self.items_per_line * row))
+            extra_offset_hex = strip_bin_offset // self.column_size
+            extra_offset_hex += 10      # skip the offset
+
+            extra_offset_ascii = self.items_per_line // self.column_size
+            if self.items_per_line % self.column_size > 0:
+                extra_offset_ascii += 1
+            extra_offset_ascii += 10      # skip the offset
+            extra_offset_ascii += self.items_per_line * 3
+
+            self.update_style(row, strip_bin_offset * 3 + extra_offset_hex, 2, 'normal_title')
+            self.update_style(row, strip_bin_offset + extra_offset_ascii, 1, 'normal_title')
+
+
+# stream_edit_window.move_cursor_to_offset
+    def move_cursor_to_offset (self, ofs, percentage=50):
+        stream_shift = self.stream_offset % self.items_per_line
+        shift = ofs % self.items_per_line
+        half = ((self.height * percentage) // 100) * self.items_per_line
+        self.stream_offset = ofs - half - shift + stream_shift
+        self.cursor_offset = ofs
+        self.cursor_strip = (ofs - self.stream_offset) // self.items_per_line
+        self.refresh()
+
+# stream_edit_window.move_cursor
+    def move_cursor (self, x, y):
+        old_strip = self.cursor_strip
+        new_offset = self.cursor_offset + x + (y * self.items_per_line)
+        # If new offset for cursor is negative then we don't update anything
+        if new_offset < 0:
+            return
+        self.cursor_offset = new_offset
+
+        strip = (new_offset - self.stream_offset) // self.items_per_line
+        
+        # if the strip is negative then we just set it to 0 and scroll up the window
+        if strip < 0:
+            self.cursor_strip = 0
+            self.stream_offset -= -strip * self.items_per_line
+            self.refresh()
+        elif strip > self.height-1:
+            self.cursor_strip = self.height-1
+            self.stream_offset += (strip - (self.height - 1)) * self.items_per_line
+            self.refresh()
+        else:
+            # if cursor move doesn't require a window scroll then refresh a maximum of two lines
+            self.cursor_strip = strip
+
+            if old_strip == strip:
+                self.refresh(start_row = strip, height = 1)
+            else:
+                self.refresh(start_row = old_strip, height = 1)
+                self.refresh(start_row = strip, height = 1)
 
 # stream_edit_window.vmove
     def vmove (self, count = 1):
         self.stream_offset += self.items_per_line * count
         if self.fluent_scroll:
+            self.move_cursor(0, 0)
             self.refresh()
         else:
+            self.move_cursor(0, 0)
             self.refresh_on_next_tick = True
             self.refresh(height = 2)
 
@@ -420,6 +480,7 @@ class stream_edit_window (tui.window):
             self.stream_offset -= disp
         else:
             self.stream_offset += disp
+        self.move_cursor(0, 0)
         self.refresh()
 
 # stream_edit_window.adjust_items_per_line
@@ -427,8 +488,10 @@ class stream_edit_window (tui.window):
         self.items_per_line += disp
         if self.items_per_line < 1: self.items_per_line = 1
         if self.fluent_resize:
+            self.move_cursor(0, 0)
             self.refresh()
         else:
+            self.move_cursor(0, 0)
             self.refresh_on_next_tick = True
             self.refresh(height = 1)
 
@@ -436,6 +499,7 @@ class stream_edit_window (tui.window):
     def on_input_timeout (self):
         upd = self.stream_cache.reset_updated()
         if self.refresh_on_next_tick or upd:
+            self.move_cursor(0, 0)
             self.refresh_on_next_tick = False
             self.refresh()
 
@@ -448,28 +512,34 @@ class stream_edit_window (tui.window):
         else:
             self.show_hex = True
             self.items_per_line = self.prev_items_per_line
+        self.move_cursor(0, 0)
         self.refresh()
 
 # stream_edit_window.jump_to_end
     def jump_to_end (self):
-        n = self.items_per_line
-        end_offset = self.stream_cache.get_known_end_offset()
-        if self.stream_offset <= end_offset \
-                and end_offset < self.stream_offset + self.height * n:
-            return
-        start_ofs_mod = self.stream_offset % n
-        bottom_offset = (end_offset - start_ofs_mod + n - 1) // n * n + start_ofs_mod
-        self.stream_offset = bottom_offset - n * self.height
-        if self.stream_offset <= start_ofs_mod - n:
-            self.stream_offset = start_ofs_mod
+        #n = self.items_per_line
+        #end_offset = self.stream_cache.get_known_end_offset()
+        #if self.stream_offset <= end_offset \
+        #        and end_offset < self.stream_offset + self.height * n:
+        #    return
+        #start_ofs_mod = self.stream_offset % n
+        #bottom_offset = (end_offset - start_ofs_mod + n - 1) // n * n + start_ofs_mod
+        #self.stream_offset = bottom_offset - n * self.height
+        #if self.stream_offset <= start_ofs_mod - n:
+        #    self.stream_offset = start_ofs_mod
+        self.move_cursor_to_offset(self.stream_cache.get_known_end_offset() - 1, 90)
+        #self.cursor_offset = self.stream_cache.get_known_end_offset() - 1
+        #self.move_cursor(0, 0)
         self.refresh()
 
 # stream_edit_window.jump_to_begin
     def jump_to_begin (self):
-        n = self.items_per_line
-        self.stream_offset = self.stream_offset % n
-        if self.stream_offset > 0:
-            self.stream_offset -= n;
+        #n = self.items_per_line
+        #self.stream_offset = self.stream_offset % n
+        #if self.stream_offset > 0:
+        #    self.stream_offset -= n;
+        self.cursor_offset = 0
+        self.move_cursor(0, 0)
         self.refresh()
 
 # stream_edit_window.on_key
@@ -485,11 +555,19 @@ class stream_edit_window (tui.window):
         elif key in ('T',):
             self.temp_demo_update_strip = not self.temp_demo_update_strip
             self.refresh(start_row = 3, height = 1)
+        elif key in ('H',):
+            #self.cursor_offset = 0x500
+            #self.move_cursor(0, 0)
+            self.move_cursor_to_offset(0x500, percentage=80)
         elif key in ('Enter',): self.cycle_modes()
         elif key in ('Ctrl-F', ' '): self.vmove(self.height - 3) # Ctrl-F
         elif key in ('Ctrl-B',): self.vmove(-(self.height - 3)) # Ctrl-B
         elif key in ('Ctrl-D',): self.vmove(self.height // 3) # Ctrl-D
         elif key in ('Ctrl-U',): self.vmove(-(self.height // 3)) # Ctrl-U
+        elif key in ('Left'): self.move_cursor(-1, 0)
+        elif key in ('Up'): self.move_cursor(0, -1)
+        elif key in ('Right'): self.move_cursor(1, 0)
+        elif key in ('Down'): self.move_cursor(0, 1)
         else:
             dmsg("Unknown key: {}", key)
             return False
