@@ -410,9 +410,14 @@ class stream_edit_window (tui.window):
 
         if row == self.cursor_strip:
             strip_bin_offset =self.cursor_offset - (self.stream_offset + (self.items_per_line * row))
-            extra_offset = strip_bin_offset // self.column_size
-            extra_offset += 10      # skip the offset
-            self.update_style(row, strip_bin_offset * 3 + extra_offset, 2, 'normal_title')
+            extra_offset_hex = strip_bin_offset // self.column_size
+            extra_offset_hex += 10      # skip the offset
+            extra_offset_ascii = 14      # skip the offset
+            extra_offset_ascii += self.items_per_line * 3
+
+            self.update_style(row, strip_bin_offset * 3 + extra_offset_hex, 2, 'normal_title')
+            self.update_style(row, strip_bin_offset + extra_offset_ascii, 1, 'normal_title')
+
 
 # stream_edit_window.move_cursor_to_offset
     def move_cursor_to_offset (self, ofs, percentage=50):
