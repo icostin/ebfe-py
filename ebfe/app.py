@@ -517,7 +517,7 @@ class stream_edit_window (tui.window):
         self.stream_offset = self.stream_offset % n
         if self.stream_offset > 0:
             self.stream_offset -= n;
-        self.cursor_offset = self.stream_offset
+        self.cursor_offset = 0
         self.move_cursor(0, 0)
         self.refresh()
 
