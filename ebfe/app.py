@@ -315,7 +315,7 @@ class stream_edit_window (tui.window):
         self.show_hex = True
         self.character_display = cfg.get('window: hex edit', 'charmap', 'printable_ascii')
         self.charmap = globals()[self.character_display.upper() + '_CHARMAP']
-        self.temp_demo_update_strip = True
+        self.temp_demo_update_strip = False
 
 # stream_edit_window.refresh_strip
     def refresh_strip (self, row, col, width):

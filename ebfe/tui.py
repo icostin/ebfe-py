@@ -358,7 +358,8 @@ class window (object):
             height = 0,
             styles = 'default',
             active_styles = None,
-            can_have_focus = False):
+            can_have_focus = False,
+            parent = None):
         object.__init__(self)
         if wid is None:
             wid = '{}_{}'.format(self.__class__.__name__, window.wid_seed)
@@ -368,8 +369,15 @@ class window (object):
         self.height = height
         self.can_have_focus = can_have_focus
         self.in_focus = False
+        self.attach(parent)
         self.wipe_updates()
         self.set_styles(styles, active_styles)
+
+    def attach (self, parent):
+        self.parent = parent
+
+    def detach (self):
+        self.attach(None)
 
 # window.__str__()
     def __str__ (self):
@@ -480,6 +488,9 @@ class window (object):
             restyler = lambda x, y=restyler: y
         ur = []
         for s in self.updates.get(row, ()):
+            if isinstance(s, cursor_update):
+                ur.append(s)
+                continue
             w = compute_text_width(s.text)
             if ab_intersects_cd(s.col, s.col + w, col, col + width):
                 if ab_inside_cd(s.col, s.col + w, col, col + width):
@@ -523,6 +534,10 @@ class window (object):
         txt += txt[0] * (self.width - self.width // 2)
         self.write(row, col, 'default', txt[col:col + width])
 
+    def update_parent (self):
+        if hasattr(self.parent, 'on_child_update'):
+            self.parent.on_child_update(self)
+
 # window.refresh()
     def refresh (self,
             start_row = 0,
@@ -549,6 +564,8 @@ class window (object):
 
         for r in range(start_row, end_row):
             self.refresh_strip(r, start_col, width)
+
+        self.update_parent()
 
 # window.resize()
     def resize (self, width = None, height = None):
@@ -757,6 +774,7 @@ class container (window):
         self.win_to_item_[win] = item
         self._update_item_indices(index + 1)
 
+        win.attach(self)
         if not concealed:
             if win.is_focusable():
                 self._add_focusable_item(item)
@@ -764,6 +782,13 @@ class container (window):
 
         dmsg('state after container.add(): {!r}', self)
         return item
+
+# container.on_child_update()
+    def on_child_update (self, child):
+        item = self.win_to_item_[child]
+        u = item.window.fetch_updates()
+        self.integrate_updates(*self._get_item_row_col(item), u)
+        self.update_parent()
 
 # container.set_item_visibility()
     def set_item_visibility (self, win, visible = True, toggle = False):
@@ -820,6 +845,7 @@ class container (window):
         parent_refocus = False
         if idx >= len(self.items_): raise error('boo')
         item = self.items_[idx]
+        item.win.detach()
         assert item.index == idx
         if self.focused_item is item:
             self.cycle_focus(in_depth = False, wrap_around = True)
@@ -886,9 +912,6 @@ class container (window):
         if self.focused_item:
             item = self.focused_item
             item.window.focus(False)
-            u = item.window.fetch_updates()
-            dmsg('{}.on_focus_leave: removed focus from {} => {} updates', self, item.window, len(u))
-            self.integrate_updates(*self._get_item_row_col(item), u)
 
 # container.on_focus_enter()
     def on_focus_enter (self):
@@ -898,7 +921,6 @@ class container (window):
         else:
             item = self.focused_item
             item.window.focus()
-            self.integrate_updates(*self._get_item_row_col(item), item.window.fetch_updates())
 
 # container.focus_to()
     def focus_to (self, win):
@@ -911,12 +933,8 @@ class container (window):
                         self, item, self.focused_item)
                 if self.focused_item and self.focused_item is not item:
                         self.focused_item.window.focus(False)
-                        self.integrate_updates(*self._get_item_row_col(self.focused_item),
-                                self.focused_item.window.fetch_updates())
                 self.focused_item = item
                 dmsg('{}.focused_item = {!r}', self, item)
-                self.integrate_updates(*self._get_item_row_col(item),
-                        item.window.fetch_updates())
                 self.in_focus = True
                 return True
         return False
@@ -929,11 +947,9 @@ class container (window):
             if in_depth and hasattr(item.window, 'cycle_focus'):
                 dmsg('{}: try cycle_focus on subitem: {!r}', self, item)
                 if item.window.cycle_focus(in_depth = True):
-                    self.integrate_updates(*self._get_item_row_col(item), item.window.fetch_updates())
                     return True
             dmsg('{} - remove focus for {!r}', self, item)
             item.window.focus(False)
-            self.integrate_updates(*self._get_item_row_col(item), item.window.fetch_updates())
         s = self.focused_item.focusable_index + 1 if self.focused_item else 0
         dmsg('s={}', s)
         if s >= len(self.focusable_items_):
@@ -945,8 +961,6 @@ class container (window):
             return False
         self.focused_item = self.focusable_items_[s]
         self.focused_item.window.focus(True)
-        self.integrate_updates(*self._get_item_row_col(self.focused_item),
-                self.focused_item.window.fetch_updates())
         return True
 
 # container._size_to_weight_height()
@@ -987,12 +1001,9 @@ class container (window):
             dmsg('{}: resizing {!r} to {}', self, item, wh)
             item.window.resize(*wh)
             rc = self._get_item_row_col(item)
-            u = item.window.fetch_updates()
-            dmsg('{}: integrating {} updates from {!r} at {}', self, len(u), item, rc)
-            self.integrate_updates(*rc, u)
             lp = item.pos + item.size
 
-        if lp < size: self.refresh()
+        #if lp < size: self.refresh()
 
         return
 
@@ -1001,9 +1012,6 @@ class container (window):
         self.on_input_timeout()
         for item in self.items_:
             item.window.input_timeout()
-            if not item.concealed:
-                self.integrate_updates(*self._get_item_row_col(item),
-                        item.window.fetch_updates())
 
 # container.refresh_strip()
     def refresh_strip (self, row, col, width):
@@ -1011,34 +1019,27 @@ class container (window):
         if self.is_vertical():
             item, idx = self._locate_item_by_pos(row)
             if item:
-                item.window.refresh_strip(row - item.pos, col, width)
-                u = item.window.fetch_updates()
-                dmsg('{}.integrate_updates from {}: {!r}', self, item, u)
-                self.integrate_updates(item.pos, 0, u)
+                item.window.refresh(row - item.pos, col, 1, width)
                 return
         elif self.is_horizontal():
             item, idx = self._locate_item_by_pos(col)
             end_col = col + width
             while col < end_col and item:
                 w = min(item.size, width)
-                item.window.refresh_strip(row, col - item.pos, w)
-                self.integrate_updates(0, item.pos, item.window.fetch_updates())
+                item.window.refresh(row, col - item.pos, 1, w)
                 col += item.size
                 width -= w
                 idx += 1
                 item = self.items_[idx] if idx < len(self.items_) else None
             # if not covered 'til end fall in the default window refresh
         if width:
-            window.refresh_strip(self, row, col, width)
+            window.refresh(self, row, col, 1, width)
         return
 
 # container.on_key()
     def on_key (self, key):
         if self.focused_item:
             key_handled = self.focused_item.window.on_key(key)
-            if key_handled:
-                self.integrate_updates(*self._get_item_row_col(self.focused_item),
-                        self.focused_item.window.fetch_updates())
         else:
             dmsg('{}: dropping {!r} due to unfocused item', self, msg)
             key_handled = True
@@ -1339,6 +1340,7 @@ class simple_doc_window (window):
         self.doc_kwargs = kwargs
         self._render()
 
+# simple_doc_window.refresh_strip()
     def refresh_strip (self, row, col, width):
         r = self.display_top_row + row
         if r >= 0 and r < len(self.content_):
