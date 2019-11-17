@@ -259,6 +259,35 @@ def trim_strips (sl, col, width = None, end_col = None):
 #* cursor_update ************************************************************
 cursor_update = zlx.record.make('tui.cursor_update', 'mode row col')
 
+#* style_update *************************************************************
+style_update = zlx.record.make('tui.style_update', 'col width restyler')
+
+#* apply_style_update *******************************************************
+def apply_style_update (update_list, col, width, restyler):
+    ur = []
+    for s in update_list:
+        if isinstance(s, cursor_update):
+            ur.append(s)
+            continue
+        w = compute_text_width(s.text)
+        if ab_intersects_cd(s.col, s.col + w, col, col + width):
+            if ab_inside_cd(s.col, s.col + w, col, col + width):
+                s.style_name = restyler(s)
+                ur.append(s)
+            else:
+                l = split_strip(s, col)
+                l2 = []
+                for i in l:
+                    l2.extend(split_strip(i, col + width))
+                for s in l2:
+                    w = compute_text_width(s.text)
+                    if ab_inside_cd(s.col, s.col + w, col, col + width):
+                        s.style_name = restyler(s)
+                    ur.append(s)
+        else:
+            ur.append(s)
+    return ur
+
 #* compute_text_width *******************************************************
 def compute_text_width (text):
     return len(text)
@@ -340,9 +369,7 @@ def generate_style_markers (styles_desc):
 #* window *******************************************************************
 class window (object):
     '''
-    A window has width and height and a list of updates.
-    The updates are organized as a list for each row where elements are
-    strips.
+    A window has width and height and parent where it sends its updates.
     Recommended overloads:
     - various message handlers: handle_xxx() (handle_timeout, handle_char)
     - refresh_strip() - to generate output for a row portion when asked
@@ -358,7 +385,8 @@ class window (object):
             height = 0,
             styles = 'default',
             active_styles = None,
-            can_have_focus = False):
+            can_have_focus = False,
+            parent = None):
         object.__init__(self)
         if wid is None:
             wid = '{}_{}'.format(self.__class__.__name__, window.wid_seed)
@@ -368,8 +396,14 @@ class window (object):
         self.height = height
         self.can_have_focus = can_have_focus
         self.in_focus = False
-        self.wipe_updates()
+        self.attach(parent)
         self.set_styles(styles, active_styles)
+
+    def attach (self, parent):
+        self.parent = parent
+
+    def detach (self):
+        self.attach(None)
 
 # window.__str__()
     def __str__ (self):
@@ -404,19 +438,13 @@ class window (object):
     def subwindows (self):
         return tuple()
 
-# window.wipe_updates()
-    def wipe_updates (self):
-        '''
-        Empties the strips from the updates field.
-        No need to overload this.
-        '''
-        self.updates = {}
-
-# window._write_strips()
-    def _write_strips (self, row, strips):
-        if row not in self.updates:
-            self.updates[row] = []
-        self.updates[row].extend(strips)
+# window._write_updates()
+    def _write_updates (self, row, updates):
+        if not updates: return
+        if not self.parent:
+            dmsg('dropping updates from {} because it has no parent', self)
+            return
+        self.parent.on_child_row_updates(self, row, updates)
 
 # window._write()
     def _write (self, row, col, style_name, text):
@@ -424,7 +452,7 @@ class window (object):
         Adds the given text in the right place in the updates field.
         No need to overload this.
         '''
-        self._write_strips(row, (strip(text, style_name, col),))
+        self._write_updates(row, (strip(text, style_name, col),))
         #dmsg('win={!r}({}x{}) write strip: row={} col={} style={!r} text={!r}', self, self.width, self.height, row, col, style_name, text)
 
 # window.write()
@@ -470,44 +498,13 @@ class window (object):
         if not self.in_focus:
             dmsg('{}.set_cursor({}, {}, {}) ignored (unfocused)', self, mode, row, col)
             return
-        if row not in self.updates:
-            self.updates[row] = []
-        self.updates[row].append(cursor_update(mode, row, col))
-        return
+        self._write_updates(row, [cursor_update(mode, row, col)])
 
+# window.update_style()
     def update_style (self, row, col, width, restyler):
         if isinstance(restyler, str):
             restyler = lambda x, y=restyler: y
-        ur = []
-        for s in self.updates.get(row, ()):
-            w = compute_text_width(s.text)
-            if ab_intersects_cd(s.col, s.col + w, col, col + width):
-                if ab_inside_cd(s.col, s.col + w, col, col + width):
-                    s.style_name = restyler(s)
-                    ur.append(s)
-                else:
-                    l = split_strip(s, col)
-                    l2 = []
-                    for i in l:
-                        l2.extend(split_strip(i, col + width))
-                    for s in l2:
-                        w = compute_text_width(s.text)
-                        if ab_inside_cd(s.col, s.col + w, col, col + width):
-                            s.style_name = restyler(s)
-                        ur.append(s)
-            else:
-                ur.append(s)
-        if ur: self.updates[row] = ur
-
-# window.integrate_updates()
-    def integrate_updates (self, row_delta, col_delta, updates):
-        for row in updates:
-            for u in updates[row]:
-                if isinstance(u, strip):
-                    self._write(row + row_delta, u.col + col_delta, u.style_name, u.text)
-                elif isinstance(u, cursor_update):
-                    if self.in_focus:
-                        self.set_cursor(u.mode, u.row + row_delta, u.col + col_delta)
+        self._write_updates(row, (style_update(col, width, restyler),))
 
 # window.refresh_strip()
     def refresh_strip (self, row, col, width):
@@ -598,16 +595,6 @@ class window (object):
         Default handler for window resize!
         '''
         self.resize(msg.width, msg.height)
-
-# window.fetch_updates()
-    def fetch_updates (self):
-        '''
-        Extracts the updates from this window.
-        No need to overload this
-        '''
-        u = self.updates
-        self.wipe_updates()
-        return u
 
 # window.is_focusable()
     def is_focusable (self):
@@ -757,6 +744,7 @@ class container (window):
         self.win_to_item_[win] = item
         self._update_item_indices(index + 1)
 
+        win.attach(self)
         if not concealed:
             if win.is_focusable():
                 self._add_focusable_item(item)
@@ -764,6 +752,25 @@ class container (window):
 
         dmsg('state after container.add(): {!r}', self)
         return item
+
+# container.on_child_row_updates()
+    def on_child_row_updates (self, child, row, update_list):
+        item = self.win_to_item_[child]
+        r, c = self._get_item_row_col(item)
+        if c is None:
+            # position not yet computed
+            return
+        ul = []
+        for u in update_list:
+            if isinstance(u, strip):
+                ul.append(strip(u.text, u.style_name, u.col + c))
+            elif isinstance(u, cursor_update):
+                ul.append(cursor_update(u.mode, u.row + r, u.col + c))
+            elif isinstance(u, style_update):
+                ul.append(style_update(u.col + c, u.width, u.restyler))
+            else:
+                raise error("boo")
+        self._write_updates(row + r, ul)
 
 # container.set_item_visibility()
     def set_item_visibility (self, win, visible = True, toggle = False):
@@ -820,6 +827,7 @@ class container (window):
         parent_refocus = False
         if idx >= len(self.items_): raise error('boo')
         item = self.items_[idx]
+        item.win.detach()
         assert item.index == idx
         if self.focused_item is item:
             self.cycle_focus(in_depth = False, wrap_around = True)
@@ -886,9 +894,6 @@ class container (window):
         if self.focused_item:
             item = self.focused_item
             item.window.focus(False)
-            u = item.window.fetch_updates()
-            dmsg('{}.on_focus_leave: removed focus from {} => {} updates', self, item.window, len(u))
-            self.integrate_updates(*self._get_item_row_col(item), u)
 
 # container.on_focus_enter()
     def on_focus_enter (self):
@@ -898,7 +903,6 @@ class container (window):
         else:
             item = self.focused_item
             item.window.focus()
-            self.integrate_updates(*self._get_item_row_col(item), item.window.fetch_updates())
 
 # container.focus_to()
     def focus_to (self, win):
@@ -911,12 +915,8 @@ class container (window):
                         self, item, self.focused_item)
                 if self.focused_item and self.focused_item is not item:
                         self.focused_item.window.focus(False)
-                        self.integrate_updates(*self._get_item_row_col(self.focused_item),
-                                self.focused_item.window.fetch_updates())
                 self.focused_item = item
                 dmsg('{}.focused_item = {!r}', self, item)
-                self.integrate_updates(*self._get_item_row_col(item),
-                        item.window.fetch_updates())
                 self.in_focus = True
                 return True
         return False
@@ -929,11 +929,9 @@ class container (window):
             if in_depth and hasattr(item.window, 'cycle_focus'):
                 dmsg('{}: try cycle_focus on subitem: {!r}', self, item)
                 if item.window.cycle_focus(in_depth = True):
-                    self.integrate_updates(*self._get_item_row_col(item), item.window.fetch_updates())
                     return True
             dmsg('{} - remove focus for {!r}', self, item)
             item.window.focus(False)
-            self.integrate_updates(*self._get_item_row_col(item), item.window.fetch_updates())
         s = self.focused_item.focusable_index + 1 if self.focused_item else 0
         dmsg('s={}', s)
         if s >= len(self.focusable_items_):
@@ -945,8 +943,6 @@ class container (window):
             return False
         self.focused_item = self.focusable_items_[s]
         self.focused_item.window.focus(True)
-        self.integrate_updates(*self._get_item_row_col(self.focused_item),
-                self.focused_item.window.fetch_updates())
         return True
 
 # container._size_to_weight_height()
@@ -987,12 +983,9 @@ class container (window):
             dmsg('{}: resizing {!r} to {}', self, item, wh)
             item.window.resize(*wh)
             rc = self._get_item_row_col(item)
-            u = item.window.fetch_updates()
-            dmsg('{}: integrating {} updates from {!r} at {}', self, len(u), item, rc)
-            self.integrate_updates(*rc, u)
             lp = item.pos + item.size
 
-        if lp < size: self.refresh()
+        #if lp < size: self.refresh()
 
         return
 
@@ -1001,9 +994,6 @@ class container (window):
         self.on_input_timeout()
         for item in self.items_:
             item.window.input_timeout()
-            if not item.concealed:
-                self.integrate_updates(*self._get_item_row_col(item),
-                        item.window.fetch_updates())
 
 # container.refresh_strip()
     def refresh_strip (self, row, col, width):
@@ -1011,34 +1001,27 @@ class container (window):
         if self.is_vertical():
             item, idx = self._locate_item_by_pos(row)
             if item:
-                item.window.refresh_strip(row - item.pos, col, width)
-                u = item.window.fetch_updates()
-                dmsg('{}.integrate_updates from {}: {!r}', self, item, u)
-                self.integrate_updates(item.pos, 0, u)
+                item.window.refresh(row - item.pos, col, 1, width)
                 return
         elif self.is_horizontal():
             item, idx = self._locate_item_by_pos(col)
             end_col = col + width
             while col < end_col and item:
                 w = min(item.size, width)
-                item.window.refresh_strip(row, col - item.pos, w)
-                self.integrate_updates(0, item.pos, item.window.fetch_updates())
+                item.window.refresh(row, col - item.pos, 1, w)
                 col += item.size
                 width -= w
                 idx += 1
                 item = self.items_[idx] if idx < len(self.items_) else None
             # if not covered 'til end fall in the default window refresh
         if width:
-            window.refresh_strip(self, row, col, width)
+            window.refresh(self, row, col, 1, width)
         return
 
 # container.on_key()
     def on_key (self, key):
         if self.focused_item:
             key_handled = self.focused_item.window.on_key(key)
-            if key_handled:
-                self.integrate_updates(*self._get_item_row_col(self.focused_item),
-                        self.focused_item.window.fetch_updates())
         else:
             dmsg('{}: dropping {!r} due to unfocused item', self, msg)
             key_handled = True
@@ -1360,7 +1343,7 @@ class simple_doc_window (window):
     def refresh_strip (self, row, col, width):
         r = self.display_top_row + row
         if r >= 0 and r < len(self.content_):
-            self._write_strips(row, trim_strips(self.content_[r], col, width))
+            self._write_updates(row, trim_strips(self.content_[r], col, width))
         else:
             self._write(row, col, self.default_style_name, ' ' * width)
 
@@ -1491,6 +1474,7 @@ class application (window):
         Overload this!
         '''
         window.__init__(self)
+        self.updates = {}
 
 # application.generate_style_map()
     def generate_style_map (self, style_caps):
@@ -1506,6 +1490,39 @@ class application (window):
                 fg = style_caps.fg_default,
                 bg = style_caps.bg_default)
         return dict(default = default_style)
+
+# application.wipe_updates()
+    def wipe_updates (self):
+        '''
+        Empties the strips from the updates field.
+        No need to overload this.
+        '''
+        self.updates = {}
+
+# application.fetch_updates()
+    def fetch_updates (self):
+        '''
+        Extracts the updates from this window.
+        No need to overload this
+        '''
+        u = self.updates
+        self.wipe_updates()
+        dmsg('updates: {!r}', u)
+        return u
+
+# application on_child_row_updates()
+    def on_child_row_updates (self, child, row, update_list):
+        #dmsg('app={} row={} updates={!r}', self, row, update_list)
+        if row not in self.updates:
+            ur = []
+        else:
+            ur = self.updates[row]
+        for u in update_list:
+            if isinstance(u, style_update):
+                ur = apply_style_update(ur, u.col, u.width, u.restyler)
+            else:
+                ur.append(u)
+        self.updates[row] = ur
 
 # application.loop()
     def loop (app, drv):

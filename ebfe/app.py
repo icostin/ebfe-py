@@ -238,14 +238,12 @@ class console (tui.container):
         self.msg_win.select_theme('active')
         #self.input_win.select_theme('active')
         tui.container.on_focus_enter(self)
-        self.integrate_updates(*self._get_item_row_col(self.items_[0]), self.msg_win.fetch_updates())
         #self.refresh()
 
     def on_focus_leave (self):
         self.msg_win.select_theme('inactive')
         #self.input_win.select_theme('inactive')
         tui.container.on_focus_leave(self)
-        self.integrate_updates(*self._get_item_row_col(self.items_[0]), self.msg_win.fetch_updates())
         #self.refresh()
 
 #* stream_edit_window *******************************************************
@@ -733,6 +731,7 @@ class main (tui.application):
         self.console_win.input_win.cancel_text_func = self._cancel_console_input
 
         self.root = tui.vcontainer(wid = 'root')
+        self.root.attach(self)
         self.root.add(title_bar('EBFE'), max_size = 1)
         self.root.add(self.body, weight = 4)
         self.root.add(self.console_win, concealed = True)
@@ -768,9 +767,6 @@ class main (tui.application):
 
     def generate_style_map (self, style_caps):
         return tui.parse_styles(style_caps, DEFAULT_STYLE_MAP)
-
-    def fetch_updates (self):
-        return self.root.fetch_updates()
 
     def on_resize (self, width, height):
         return self.root.resize(width, height)
