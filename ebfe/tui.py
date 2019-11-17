@@ -1018,13 +1018,30 @@ class container (window):
             window.refresh(self, row, col, 1, width)
         return
 
+# container.pre_key()
+# Overload this if your container needs to process keys before sending them to children
+    def pre_key (self, key):
+        return False
+
+# container.post_key()
+# Overload this if your container needs to process keys unprocessed by its children
+    def post_key (self, key):
+        return False
+
 # container.on_key()
     def on_key (self, key):
+        if self.pre_key(key):
+            return True
+
         if self.focused_item:
             key_handled = self.focused_item.window.on_key(key)
         else:
             dmsg('{}: dropping {!r} due to unfocused item', self, msg)
             key_handled = True
+
+        if not key_handled:
+            key_handled = self.post_key(key)
+
         return key_handled
 
 # class container - end
@@ -1060,6 +1077,7 @@ class cc_window (window):
                 active_styles = active_styles)
         self.content = []
         self.top_row = 0
+        self.auto_scroll = True
         if init_content: self.set_content(0, init_content)
 
 # cc_window.set_content()
@@ -1069,13 +1087,35 @@ class cc_window (window):
         while row > len(self.content):
             self.content.append('')
         self.content[row : row + len(l)] = l
+        if self.height > 0 and self.auto_scroll and len(self.content) > self.height:
+            self.top_row = len(self.content) - self.height
         dmsg('got content:\n{}', '\n'.join([repr(x) for x in self.content]))
         self.refresh()
 
 # cc_window.scroll()
-    def scroll (self, delta, absolute = False):
-        if absolute: self.top_row = 0
-        self.top_row += delta
+# If the window has a height then we can scroll its contents up and down
+# while disabling the auto_scroll at the same time
+    def scroll (self, delta):
+        if self.height > 0:
+            tmp_top_row = self.top_row + delta
+            if tmp_top_row < 0 or len(self.content) <= self.height:
+                tmp_top_row = 0
+            if len(self.content) > self.height and tmp_top_row > (len(self.content) - self.height):
+                tmp_top_row = len(self.content) - self.height
+            self.auto_scroll = False
+            self.top_row = tmp_top_row
+            self.refresh()
+
+# cc_window.auto_scroll()
+# enable auto-scrolling capability
+    def auto_scroll_on (self):
+        if self.height > 0:
+            if len(self.content) <= self.height:
+                self.top_row = 0
+            else:
+                self.top_row = len(self.content) - self.height
+        self.auto_scroll = True
+        self.refresh()
 
 # cc_window.refresh_strip()
     def refresh_strip (self, row, col, width):
@@ -1100,6 +1140,9 @@ class cc_window (window):
 # cc_window.on_resize()
     def on_resize (self, width, height):
         self.regenerate_content()
+        # if we don't have a fixed top row then we recalculate it at every resize
+        if self.auto_scroll and self.height > 0 and len(self.content) > self.height:
+            self.top_row = len(self.content) - self.height
         self.refresh()
 
 # end cc_window

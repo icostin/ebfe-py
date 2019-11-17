@@ -245,6 +245,18 @@ class console (tui.container):
         #self.input_win.select_theme('inactive')
         tui.container.on_focus_leave(self)
         #self.refresh()
+    
+    def pre_key (self, key):
+        if key == 'kUP5':
+            self.msg_win.scroll(-1)
+            return True
+        if key == 'kDN5':
+            self.msg_win.scroll(1)
+            return True
+        if key == 'Ctrl-G':
+            self.msg_win.auto_scroll_on()
+            return True
+        return False
 
 #* stream_edit_window *******************************************************
 class stream_edit_window (tui.window):
