@@ -315,7 +315,7 @@ class stream_edit_window (tui.window):
         self.show_hex = True
         self.character_display = cfg.get('window: hex edit', 'charmap', 'printable_ascii')
         self.charmap = globals()[self.character_display.upper() + '_CHARMAP']
-        self.temp_demo_update_strip = True
+        self.temp_demo_update_strip = False
 
 # stream_edit_window.refresh_strip
     def refresh_strip (self, row, col, width):
@@ -599,7 +599,7 @@ class help_window (tui.simple_doc_window):
 
     INIT_CONTENT = '''
 {br}
-{heading}EBFE - Help{normal}
+{heading}{sp}EBFE - Help{sp}{normal}
 
 {par}{justify}
 Welcome to {stress}EBFE{normal}!
@@ -625,6 +625,13 @@ with some default key-mappings to keep you going before you hit the shelves.
 {par}{stress}Hex editor window keys:{br}
 {key}Up{normal}, {key}k{normal}{tab}12{cpar}    move up{br}
 {key}Down{normal}, {key}j{normal}{tab}12{cpar}  move down{br}
+{key}Enter{normal}{tab}12{cpar}                 cycle modes{br}
+
+{par}
+For more info:{br}
+{sp}-{tab}4{cpar}   {link}help hex_editor_modes{normal}hex editor modes{end_link}{br}
+{sp}-{tab}4{cpar}   {link}help config{normal}config file{end_link}{br}
+
 {hr}
     '''.strip()
 
@@ -685,7 +692,7 @@ DEFAULT_STYLE_MAP = '''
     active_help_normal attr=normal fg=15 bg=6
     active_help_stress attr=normal fg=11 bg=6
     active_help_key attr=normal fg=10 bg=6
-    active_help_heading attr=normal fg=5 bg=6
+    active_help_heading attr=normal fg=9 bg=6
     active_help_topic attr=normal fg=5 bg=6
 
     inactive_help_normal attr=normal fg=7 bg=0
@@ -727,7 +734,7 @@ class main (tui.application):
 
         self.root = tui.vcontainer(wid = 'root')
         self.root.add(title_bar('EBFE'), max_size = 1)
-        self.root.add(self.body, weight = 10)
+        self.root.add(self.body, weight = 4)
         self.root.add(self.console_win, concealed = True)
         self.root.add(status_bar(), max_size = 1)
 

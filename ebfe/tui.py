@@ -1124,6 +1124,7 @@ class cc_window (window):
 #* simple_doc_window ********************************************************
 class simple_doc_window (window):
 
+# simple_doc_window.__init__()
     def __init__ (self,
             wid = None,
             styles = 'default',
@@ -1139,12 +1140,14 @@ class simple_doc_window (window):
         self.set_doc(doc_fmt, **doc_kwargs)
         self.display_top_row = 0
 
+# simple_doc_window._reset_content()
     def _reset_content (self):
         self.content_ = []
         self.last_row_ = []
         self.last_row_width_ = 0
         self.content_.append(self.last_row_)
 
+# simple_doc_window._fill_to_eol()
     def _fill_to_eol (self, fill_char = ' '):
         if self.last_row_width_ < self.width:
             self.last_row_.append(
@@ -1152,13 +1155,14 @@ class simple_doc_window (window):
                     self.default_style_name, self.last_row_width_))
             self.last_row_width_ = self.width
 
-
+# simple_doc_window._new_row()
     def _new_row (self, fill_char = ' '):
         self._fill_to_eol(fill_char)
         self.last_row_ = []
         self.last_row_width_ = 0
         self.content_.append(self.last_row_)
 
+# simple_doc_window._add_text()
     def _add_text (self, text, style = None):
         if style is None:
             style = self.last_row_[-1].style_name
@@ -1168,6 +1172,7 @@ class simple_doc_window (window):
             self.last_row_.append(strip(text, style, self.last_row_width_))
         self.last_row_width_ += compute_text_width(text)
 
+# simple_doc_window._justify_last_row()
     def _justify_last_row (self):
         dmsg('enter justifying: {!r}', self.last_row_)
         dmsg('width={}', self.last_row_width_)
@@ -1201,8 +1206,7 @@ class simple_doc_window (window):
         dmsg('exit justifying: {!r}', self.last_row_)
         return
 
-
-
+# simple_doc_window.STYLE_CMDS
     STYLE_CMDS = dict(
             par = ''.join((STYLE_BEGIN, 'paragraph', STYLE_END)),
             br = ''.join((STYLE_BEGIN, 'br', STYLE_END)),
@@ -1216,7 +1220,12 @@ class simple_doc_window (window):
             indent = ''.join((STYLE_BEGIN, 'indent', STYLE_END)),
             tab = ''.join((STYLE_BEGIN, 'indent', STYLE_END)),
             wrap_indent = ''.join((STYLE_BEGIN, 'wrap_indent', STYLE_END)),
+            sp = ''.join((STYLE_BEGIN, 'space', STYLE_END)),
+            link = ''.join((STYLE_BEGIN, 'link', STYLE_END)),
+            end_link = ''.join((STYLE_BEGIN, 'end_link', STYLE_END)),
             )
+
+# simple_doc_window._render()
     def _render (self):
         if self.width < 1: return
         self.empty_row_strips_ = [strip(' ' * self.width, self.default_style_name, 0)]
@@ -1253,6 +1262,8 @@ class simple_doc_window (window):
                 justify = True
             elif style == 'no_justify':
                 justify = False
+            elif style == 'space':
+                self._add_text(' ', current_style)
             elif style == 'indent':
                 n = int(text)
                 m = (self.last_row_width_ + n) // n * n
@@ -1263,6 +1274,10 @@ class simple_doc_window (window):
                     o = m - self.last_row_width_
                 self._add_text(' ' * o, current_style)
                 continue
+            elif style == 'link':
+                continue
+            elif style == 'end_link':
+                pass
             else:
                 current_style = style
             if mode == 'verbatim':
@@ -1318,6 +1333,7 @@ class simple_doc_window (window):
                 pass
         self._fill_to_eol()
 
+# simple_doc_window.on_resize()
     def on_resize (self, width = None, height = None):
         self._render()
         self.refresh()
@@ -1334,11 +1350,13 @@ class simple_doc_window (window):
         self._render()
         self.refresh()
 
+# simple_doc_window.set_doc()
     def set_doc (self, fmt, **kwargs):
         self.doc_fmt = fmt
         self.doc_kwargs = kwargs
         self._render()
 
+# simple_doc_window.refresh_strip()
     def refresh_strip (self, row, col, width):
         r = self.display_top_row + row
         if r >= 0 and r < len(self.content_):
