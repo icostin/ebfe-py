@@ -738,7 +738,7 @@ class main (tui.application):
         self.root = tui.vcontainer(wid = 'root')
         self.root.attach(self)
         self.root.add(title_bar('EBFE'), max_size = 1)
-        self.root.add(self.body, weight = 10)
+        self.root.add(self.body, weight = 5)
         self.root.add(self.console_win, concealed = True)
         self.root.add(status_bar(), max_size = 1)
 

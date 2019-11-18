@@ -1141,8 +1141,9 @@ class cc_window (window):
     def on_resize (self, width, height):
         self.regenerate_content()
         # if we don't have a fixed top row then we recalculate it at every resize
-        if self.auto_scroll and self.height > 0 and len(self.content) > self.height:
-            self.top_row = len(self.content) - self.height
+        if self.auto_scroll and height > 0 and len(self.content) > height:
+            self.top_row = len(self.content) - height
+
         self.refresh()
 
 # end cc_window
