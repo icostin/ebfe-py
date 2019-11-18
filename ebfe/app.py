@@ -121,6 +121,7 @@ class command_manager ():
         self.command_plugins = {
                 'test' : self.cmd_test,
                 }
+        self.stdout = None
 
     def invoke_command (self, split, text):
         if split[0] in self.command_plugins:
@@ -128,6 +129,8 @@ class command_manager ():
 
     def cmd_test (self, split, text):
         dmsg("TEST COMMAND INVOKED: {}", text)
+        if self.stdout:
+            self.stdout.set_content(len(self.stdout.content), '\'test\' command invoked with params: ' + repr(split[1:]))
 
 
 #* title_bar ****************************************************************
@@ -772,6 +775,8 @@ class main (tui.application):
             dmsg('adding in container window for {!r}', file_uris[i])
             self.body.add(sw, index = i)
         self.active_stream_win = self.stream_windows[0]
+
+        self.cmd_manager.stdout = self.console_win.msg_win
 
         self.root.focus_to(self.active_stream_win)
 
