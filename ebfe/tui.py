@@ -1104,6 +1104,8 @@ class cc_window (window):
 
 # end cc_window
 
+link_data = zlx.record.make('tui.link_data', 'index command start_row start_col end_row end_col')
+
 #* simple_doc_window ********************************************************
 class simple_doc_window (window):
 
@@ -1129,6 +1131,7 @@ class simple_doc_window (window):
         self.last_row_ = []
         self.last_row_width_ = 0
         self.content_.append(self.last_row_)
+        self.links_ = [] # list of link_data
 
 # simple_doc_window._fill_to_eol()
     def _fill_to_eol (self, fill_char = ' '):
@@ -1218,6 +1221,9 @@ class simple_doc_window (window):
         current_style = self.default_style_name
         wrap_indent = 0
         justify = False
+
+        link = None
+
         for style, text in styled_text_chunks(doc, self.default_style_name):
             if style == 'verbatim':
                 mode = 'verbatim'
@@ -1258,9 +1264,21 @@ class simple_doc_window (window):
                 self._add_text(' ' * o, current_style)
                 continue
             elif style == 'link':
+                if text.startswith('#'):
+                    restyler, command = text.split('#', 3)[1:]
+                else:
+                    pass
+                link = link_data(
+                        index = len(self.links_),
+                        command = text,
+                        start_row = len(self.content_) - 1,
+                        start_col = self.last_row_width_)
                 continue
             elif style == 'end_link':
-                pass
+                link.end_row = len(self.content_) - 1
+                link.end_col = self.last_row_width_
+                self.links_.append(link)
+                dmsg('recording link: {!r}', link)
             else:
                 current_style = style
             if mode == 'verbatim':
@@ -1315,6 +1333,7 @@ class simple_doc_window (window):
                                 self._new_row()
                 pass
         self._fill_to_eol()
+        self.link_selected_ = None
 
 # simple_doc_window.on_resize()
     def on_resize (self, width = None, height = None):
