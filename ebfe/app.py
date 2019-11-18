@@ -114,6 +114,22 @@ class settings_manager ():
         with open(self.cfg_file, 'w') as cfg_file_handle:
             self.cfg.write(cfg_file_handle)
 
+#* command manager class ****************************************************
+class command_manager ():
+
+    def __init__ (self):
+        self.command_plugins = {
+                'test' : self.cmd_test,
+                }
+
+    def invoke_command (self, split, text):
+        if split[0] in self.command_plugins:
+            self.command_plugins[split[0]](split, text)
+
+    def cmd_test (self, split, text):
+        dmsg("TEST COMMAND INVOKED: {}", text)
+
+
 #* title_bar ****************************************************************
 class title_bar (tui.window):
     '''
@@ -214,10 +230,11 @@ class console (tui.container):
             normal=inactive_console
     '''
 
-    def __init__ (self, wid = None):
+    def __init__ (self, wid = None, cmd_manager = None):
         tui.container.__init__(self,
                 wid = wid,
                 direction = tui.container.VERTICAL)
+        self.cmd_manager = cmd_manager
         self.msg_win = tui.cc_window(
                 init_content = 'This is the console area.',
                 can_have_focus = False,
@@ -233,6 +250,11 @@ class console (tui.container):
     def _accept_input (self, text):
         self.msg_win.set_content(len(self.msg_win.content), text)
         self.input_win.erase_text()
+
+        split = text.split()
+        dmsg("Splitted command is: {}", repr(split[0]))
+        if self.cmd_manager:
+            self.cmd_manager.invoke_command(split, text)
 
     def on_focus_enter (self):
         self.msg_win.select_theme('active')
@@ -729,10 +751,12 @@ class main (tui.application):
         dmsg('stream windows: {!r}', self.stream_windows)
         self.active_stream_index = None
 
+        self.cmd_manager = command_manager()
+
         self.panel = help_window()
         self.body = tui.hcontainer(wid = 'body')
         self.body.add(self.panel, weight = 0.3, min_size = 10, max_size = 60)
-        self.console_win = console()
+        self.console_win = console(cmd_manager = self.cmd_manager)
         self.console_win.input_win.cancel_text_func = self._cancel_console_input
 
         self.root = tui.vcontainer(wid = 'root')
