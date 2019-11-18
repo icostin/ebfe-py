@@ -123,14 +123,16 @@ class command_manager ():
                 }
         self.stdout = None
 
+    def out (self, text):
+        if self.stdout:
+            self.stdout.set_content(len(self.stdout.content), text)
+
     def invoke_command (self, split, text):
         if split[0] in self.command_plugins:
             self.command_plugins[split[0]](split, text)
 
     def cmd_test (self, split, text):
-        dmsg("TEST COMMAND INVOKED: {}", text)
-        if self.stdout:
-            self.stdout.set_content(len(self.stdout.content), '\'test\' command invoked with params: ' + repr(split[1:]))
+        self.out('\'test\' command invoked with params: ' + repr(split[1:]))
 
 
 #* title_bar ****************************************************************
@@ -251,7 +253,7 @@ class console (tui.container):
         self.add(self.input_win, max_size = 1)
 
     def _accept_input (self, text):
-        self.msg_win.set_content(len(self.msg_win.content), text)
+        self.msg_win.set_content(len(self.msg_win.content), '> '+text)
         self.input_win.erase_text()
 
         split = text.split()
