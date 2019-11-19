@@ -202,6 +202,7 @@ class status_bar (tui.window):
         )
         self.title = title
         self.tick = 0
+        self.text = ''
 
     def refresh_strip (self, row, col, width):
         dmsg('{}.refresh_strip(row={}, col={}, width={})', self, row, col, width)
@@ -209,6 +210,34 @@ class status_bar (tui.window):
         if row != 0:
             raise RuntimeError('boo')
         self.put(0, 0, stext, clip_col = col, clip_width = width)
+        if len(self.text) > 0:
+            self.put(0, 20, self.text)
+
+    def push (self, c):
+        self.text += c
+        self.refresh()
+
+    def pop (self):
+        c = ''
+        if len(self.text) > 0:
+            c = self.text[-1:]
+            self.text = self.text[:-1]
+        self.refresh()
+        return c
+
+    def empty (self):
+        self.text = ''
+        self.refresh()
+
+    def is_empty (self):
+        return self.text == ''
+
+    def get (self):
+        #TODO must handle exceptions!!!!!
+        v = int(self.text, 0)
+        self.text = ''
+        self.refresh()
+        return v
 
 #* job details **************************************************************
 class processing_details (tui.window):
@@ -584,13 +613,19 @@ class stream_edit_window (tui.window):
         #self.stream_offset = self.stream_offset % n
         #if self.stream_offset > 0:
         #    self.stream_offset -= n;
-        self.cursor_offset = 0
+        ofs = 0
+        if not O['status_is_empty']():
+            ofs = O['status_get']()
+
+        self.cursor_offset = ofs
         self.move_cursor(0, 0)
         self.refresh()
 
 # stream_edit_window.on_key
     def on_key (self, key):
-        if key in ('j', 'J'): self.vmove(+1)
+        if key in ('0123456789xXaAbBcCdDeEfF'): O['status_push'](key)
+        elif key == ('Backspace'): O['status_pop']()
+        elif key in ('j', 'J'): self.vmove(+1)
         elif key in ('k', 'K'): self.vmove(-1)
         elif key in ('g',): self.jump_to_begin()
         elif key in ('G',): self.jump_to_end()
@@ -610,10 +645,31 @@ class stream_edit_window (tui.window):
         elif key in ('Ctrl-B',): self.vmove(-(self.height - 3)) # Ctrl-B
         elif key in ('Ctrl-D',): self.vmove(self.height // 3) # Ctrl-D
         elif key in ('Ctrl-U',): self.vmove(-(self.height // 3)) # Ctrl-U
-        elif key in ('Left'): self.move_cursor(-1, 0)
-        elif key in ('Up'): self.move_cursor(0, -1)
-        elif key in ('Right'): self.move_cursor(1, 0)
-        elif key in ('Down'): self.move_cursor(0, 1)
+
+        elif key in ('Left'): 
+            val = 1
+            if not O['status_is_empty']():
+                val = O['status_get']()
+            self.move_cursor(-val, 0)
+        
+        elif key in ('Up'): 
+            val = 1
+            if not O['status_is_empty']():
+                val = O['status_get']()
+            self.move_cursor(0, -val)
+        
+        elif key in ('Right'): 
+            val = 1
+            if not O['status_is_empty']():
+                val = O['status_get']()
+            self.move_cursor(val, 0)
+        
+        elif key in ('Down'): 
+            val = 1
+            if not O['status_is_empty']():
+                val = O['status_get']()
+            self.move_cursor(0, val)
+        
         else:
             dmsg("Unknown key: {}", key)
             return False
@@ -779,7 +835,13 @@ class main (tui.application):
         self.root.add(title_bar('EBFE'), max_size = 1)
         self.root.add(self.body, weight = 5)
         self.root.add(self.console_win, concealed = True)
-        self.root.add(status_bar(), max_size = 1)
+        sbar = status_bar()
+        self.root.add(sbar, max_size = 1)
+        O['status_push'] = sbar.push
+        O['status_pop'] = sbar.pop
+        O['status_empty'] = sbar.empty
+        O['status_get'] = sbar.get
+        O['status_is_empty'] = sbar.is_empty
 
         #self.set_active_stream(0)
         for i in range(len(self.stream_windows)):
@@ -847,7 +909,11 @@ class main (tui.application):
             return True
 
         # handle keys not used by the focused window
-        if key in ('q', 'Q', 'Esc'): self.quit()
+        if key in ('q', 'Q', 'Esc'):
+            if O['status_is_empty']():
+                self.quit()
+            else:
+                O['status_empty']()
         elif key in (':',):
             self.root.set_item_visibility(self.console_win, True)
             self.root.focus_to(self.console_win)
