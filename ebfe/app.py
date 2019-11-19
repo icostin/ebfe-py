@@ -122,6 +122,7 @@ class command_manager ():
         self.command_plugins = {
                 'test' : self.cmd_test,
                 'q' : self.cmd_q,
+                'g' : self.cmd_g,
                 }
 
     def out (self, text):
@@ -137,6 +138,12 @@ class command_manager ():
     def cmd_q (self, cmd, params):
         O['quit']()
 
+    def cmd_g (self, cmd, params):
+        try:
+            ofs = int(params, 0)
+            O['hexedit_goto'](ofs)
+        except ValueError as e:
+            self.out('!Invalid offset: ' + params)
 
 #* title_bar ****************************************************************
 class title_bar (tui.window):
@@ -388,6 +395,7 @@ class stream_edit_window (tui.window):
         self.character_display = cfg.get('window: hex edit', 'charmap', 'printable_ascii')
         self.charmap = globals()[self.character_display.upper() + '_CHARMAP']
         self.temp_demo_update_strip = False
+        O['hexedit_goto'] = self.move_cursor_to_offset
 
 # stream_edit_window.refresh_strip
     def refresh_strip (self, row, col, width):
@@ -497,10 +505,12 @@ class stream_edit_window (tui.window):
 
 # stream_edit_window.move_cursor_to_offset
     def move_cursor_to_offset (self, ofs, percentage=50):
-        stream_shift = self.stream_offset % self.items_per_line
-        shift = ofs % self.items_per_line
-        half = ((self.height * percentage) // 100) * self.items_per_line
-        self.stream_offset = ofs - half - shift + stream_shift
+        # if offset is present on the screen do not use percentage to get to it
+        if ofs < self.stream_offset or ofs > self.stream_offset + (self.height * self.items_per_line):
+            stream_shift = self.stream_offset % self.items_per_line
+            shift = ofs % self.items_per_line
+            half = ((self.height * percentage) // 100) * self.items_per_line
+            self.stream_offset = ofs - half - shift + stream_shift
         self.cursor_offset = ofs
         self.cursor_strip = (ofs - self.stream_offset) // self.items_per_line
         self.refresh()
@@ -589,19 +599,8 @@ class stream_edit_window (tui.window):
 
 # stream_edit_window.jump_to_end
     def jump_to_end (self):
-        #n = self.items_per_line
-        #end_offset = self.stream_cache.get_known_end_offset()
-        #if self.stream_offset <= end_offset \
-        #        and end_offset < self.stream_offset + self.height * n:
-        #    return
-        #start_ofs_mod = self.stream_offset % n
-        #bottom_offset = (end_offset - start_ofs_mod + n - 1) // n * n + start_ofs_mod
-        #self.stream_offset = bottom_offset - n * self.height
-        #if self.stream_offset <= start_ofs_mod - n:
-        #    self.stream_offset = start_ofs_mod
-        self.move_cursor_to_offset(self.stream_cache.get_known_end_offset() - 1, 90)
-        #self.cursor_offset = self.stream_cache.get_known_end_offset() - 1
-        #self.move_cursor(0, 0)
+        #self.move_cursor_to_offset(self.stream_cache.get_known_end_offset() - 1, 90)
+        self.move_cursor_to_offset(self.stream_cache.get_known_end_offset() - 1, 95)
         self.refresh()
 
 # stream_edit_window.jump_to_begin

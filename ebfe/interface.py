@@ -11,5 +11,6 @@ O = {
     'status_empty': lambda: None,
     'status_get': lambda: None,
     'status_is_empty': lambda: None,
+    'hexedit_goto': lambda a: None,
 }
 
