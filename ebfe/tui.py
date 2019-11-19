@@ -1165,14 +1165,14 @@ class simple_doc_window (window):
 
 # simple_doc_window._justify_last_row()
     def _justify_last_row (self):
-        dmsg('enter justifying: {!r}', self.last_row_)
-        dmsg('width={}', self.last_row_width_)
+        #dmsg('enter justifying: {!r}', self.last_row_)
+        #dmsg('width={}', self.last_row_width_)
         while self.last_row_width_ < self.width:
             skip_start_ws = True
             col = 0
             n = self.width - self.last_row_width_
             for s in self.last_row_:
-                dmsg('justifying: {!r}, n={}', s.text, n)
+                #dmsg('justifying: {!r}, n={}', s.text, n)
                 s.col = col
                 tl = []
                 for ch in s.text:
@@ -1180,21 +1180,22 @@ class simple_doc_window (window):
                     if ch.isspace():
                         if skip_start_ws: continue
                         if n:
-                            dmsg('insert space')
+                            #dmsg('insert space')
                             tl.append(' ')
                             n -= 1
+                            skip_start_ws = True
                     else:
                         #dmsg('skip_ws off')
                         skip_start_ws = False
                 s.text = ''.join(tl)
-                dmsg('justified: {!r}', s.text)
+                #dmsg('justified: {!r}', s.text)
                 col += compute_text_width(s.text)
-            dmsg('new width: {}', col)
+            #dmsg('new width: {}', col)
             if col == self.last_row_width_:
                 # could not insert any space, give up
                 break
             self.last_row_width_ = col
-        dmsg('exit justifying: {!r}', self.last_row_)
+        #dmsg('exit justifying: {!r}', self.last_row_)
         return
 
 # simple_doc_window.STYLE_CMDS
