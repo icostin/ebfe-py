@@ -121,13 +121,10 @@ class command_manager ():
     def __init__ (self):
         self.command_plugins = {
                 'test' : self.cmd_test,
-                'pufff' : self.cmd_pufff,
+                'q' : self.cmd_q,
                 }
-        #self.stdout = None
 
     def out (self, text):
-        #if self.stdout:
-        #    self.stdout.set_content(len(self.stdout.content), text)
         O['console_out'](text)
 
     def invoke_command (self, cmd, params):
@@ -135,10 +132,10 @@ class command_manager ():
             self.command_plugins[cmd](cmd, params)
 
     def cmd_test (self, cmd, params):
-        self.out('\'' + cmd + '\' command invoked with params: ' + params)
+        self.out('\'' + cmd + '\' command invoked with params: \'' + params + '\'')
 
-    def cmd_pufff (self, cmd, params):
-        self.out('\'' + cmd + '\' command invoked with params: ' + params)
+    def cmd_q (self, cmd, params):
+        O['quit']()
 
 
 #* title_bar ****************************************************************
@@ -312,10 +309,10 @@ class console (tui.container):
         #self.refresh()
     
     def pre_key (self, key):
-        if key == 'kUP5':
+        if key == 'Ppage':
             self.msg_win.scroll(-1)
             return True
-        if key == 'kDN5':
+        if key == 'Npage':
             self.msg_win.scroll(1)
             return True
         if key == 'Ctrl-G':
@@ -852,6 +849,8 @@ class main (tui.application):
 
         #self.cmd_manager.stdout = self.console_win.msg_win
         O['console_out'] = self.console_win.msg_win.general_out
+        
+        O['quit'] = self.quit
 
         self.root.focus_to(self.active_stream_win)
 
