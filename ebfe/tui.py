@@ -1080,6 +1080,10 @@ class cc_window (window):
         self.auto_scroll = True
         if init_content: self.set_content(0, init_content)
 
+# cc_window.general_out()
+    def general_out (self, text):
+        self.set_content(len(self.content), text)
+
 # cc_window.set_content()
     def set_content (self, row, text):
         '''updates the cached content. No need to overload this!'''
@@ -1106,7 +1110,7 @@ class cc_window (window):
             self.top_row = tmp_top_row
             self.refresh()
 
-# cc_window.auto_scroll()
+# cc_window.auto_scroll_on()
 # enable auto-scrolling capability
     def auto_scroll_on (self):
         if self.height > 0:

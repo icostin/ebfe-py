@@ -8,6 +8,7 @@ import ebfe
 import zlx.io
 import configparser
 from zlx.io import dmsg
+from ebfe.interface import O
 
 # internal module imports
 import ebfe.tui as tui
@@ -120,19 +121,24 @@ class command_manager ():
     def __init__ (self):
         self.command_plugins = {
                 'test' : self.cmd_test,
+                'pufff' : self.cmd_pufff,
                 }
-        self.stdout = None
+        #self.stdout = None
 
     def out (self, text):
-        if self.stdout:
-            self.stdout.set_content(len(self.stdout.content), text)
+        #if self.stdout:
+        #    self.stdout.set_content(len(self.stdout.content), text)
+        O['console_out'](text)
 
-    def invoke_command (self, split, text):
-        if split[0] in self.command_plugins:
-            self.command_plugins[split[0]](split, text)
+    def invoke_command (self, cmd, params):
+        if cmd in self.command_plugins:
+            self.command_plugins[cmd](cmd, params)
 
-    def cmd_test (self, split, text):
-        self.out('\'test\' command invoked with params: ' + repr(split[1:]))
+    def cmd_test (self, cmd, params):
+        self.out('\'' + cmd + '\' command invoked with params: ' + params)
+
+    def cmd_pufff (self, cmd, params):
+        self.out('\'' + cmd + '\' command invoked with params: ' + params)
 
 
 #* title_bar ****************************************************************
@@ -235,11 +241,10 @@ class console (tui.container):
             normal=inactive_console
     '''
 
-    def __init__ (self, wid = None, cmd_manager = None):
+    def __init__ (self, wid = None):
         tui.container.__init__(self,
                 wid = wid,
                 direction = tui.container.VERTICAL)
-        self.cmd_manager = cmd_manager
         self.msg_win = tui.cc_window(
                 init_content = 'This is the console area.',
                 can_have_focus = False,
@@ -253,13 +258,17 @@ class console (tui.container):
         self.add(self.input_win, max_size = 1)
 
     def _accept_input (self, text):
-        self.msg_win.set_content(len(self.msg_win.content), '> '+text)
-        self.input_win.erase_text()
+        if len(text) > 0:
+            self.msg_win.set_content(len(self.msg_win.content), '> '+text)
+            self.input_win.erase_text()
 
-        split = text.split()
-        dmsg("Splitted command is: {}", repr(split[0]))
-        if self.cmd_manager:
-            self.cmd_manager.invoke_command(split, text)
+            split = text.split(maxsplit=1)
+            if len(split) > 0:
+                rest = ''
+                if len(split) > 1:
+                    rest = split[1]
+
+                O['cmd'](split[0], rest)
 
     def on_focus_enter (self):
         self.msg_win.select_theme('active')
@@ -757,11 +766,12 @@ class main (tui.application):
         self.active_stream_index = None
 
         self.cmd_manager = command_manager()
+        O['cmd'] = self.cmd_manager.invoke_command
 
         self.panel = help_window()
         self.body = tui.hcontainer(wid = 'body')
         self.body.add(self.panel, weight = 0.3, min_size = 10, max_size = 60)
-        self.console_win = console(cmd_manager = self.cmd_manager)
+        self.console_win = console()
         self.console_win.input_win.cancel_text_func = self._cancel_console_input
 
         self.root = tui.vcontainer(wid = 'root')
@@ -778,7 +788,8 @@ class main (tui.application):
             self.body.add(sw, index = i)
         self.active_stream_win = self.stream_windows[0]
 
-        self.cmd_manager.stdout = self.console_win.msg_win
+        #self.cmd_manager.stdout = self.console_win.msg_win
+        O['console_out'] = self.console_win.msg_win.general_out
 
         self.root.focus_to(self.active_stream_win)
 
