@@ -1,5 +1,6 @@
 # standard module imports
 import datetime
+import platform
 import io
 import os
 import ebfe
@@ -74,12 +75,34 @@ def open_file_from_uri (uri):
 class settings_manager ():
 
     def __init__ (self, cfg_file):
-        self.cfg_file = cfg_file
         self.cfg = configparser.ConfigParser()
+
+        self.system = platform.system()
+        # Set the config path by default to ebfe's folder
+        self.cfg_dir = os.path.dirname(os.path.realpath(__file__))
+        if self.system in ['Linux', 'Darwin', 'SunOS']:
+            self.cfg_dir = os.path.expandvars(R'$HOME/.config/ebfe/')
+        elif self.system == 'Windows':
+            self.cfg_dir = os.path.expandvars(R'%AppData%\\ebfe\\')
+
+        dmsg("Creating settings file: {}", self.cfg_dir + cfg_file)
+
+        try:
+            if not os.path.isdir(self.cfg_dir):
+                os.makedirs(self.cfg_dir, mode=0o755)
+            if not os.path.isdir(self.cfg_dir + R'plugins'):
+                os.mkdir(self.cfg_dir + R'plugins', mode=0o755)
+            if not os.path.isdir(self.cfg_dir + R'themes'):
+                os.mkdir(self.cfg_dir + R'themes', mode=0o755)
+        except OSError:
+            dmsg('Error creating settings folder and subfolders: {}', self.cfg_dir)
+        
+        self.cfg_file = self.cfg_dir + cfg_file
+
         #cfg_file = os.path.expanduser(cfg_file)
         # if config file exists it is parsed
-        if os.path.isfile(cfg_file):
-            self.cfg.read(cfg_file)
+        if os.path.isfile(self.cfg_file):
+            self.cfg.read(self.cfg_file)
         # if not, it's created with the sections
         else:
             self.cfg['main settings'] = {}
@@ -377,7 +400,7 @@ class stream_edit_window (tui.window):
                 styles = self.INACTIVE_STYLES,
                 active_styles = self.ACTIVE_STYLES,
                 can_have_focus = True)
-        cfg = settings_manager(os.path.expanduser('~/.ebfe.ini'))
+        cfg = settings_manager('ebfe.ini')
         self.stream_uri = stream_uri
         self.stream_cache = stream_cache
         self.stream_offset = 0
