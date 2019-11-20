@@ -1,4 +1,9 @@
 O = {
+    'cfg': {
+        'folder': '',
+        'file': '',
+    },
+
     # This is the function which quits the editor
     'quit': lambda: None,
     # This is the function which invokes global commands

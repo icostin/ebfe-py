@@ -80,8 +80,10 @@ class settings_manager ():
         self.system = platform.system()
         # Set the config path by default to ebfe's folder
         self.cfg_dir = os.path.dirname(os.path.realpath(__file__))
+        # For *nix try to use ~/.config
         if self.system in ['Linux', 'Darwin', 'SunOS']:
             self.cfg_dir = os.path.expandvars(R'$HOME/.config/ebfe/')
+        # For Windows try to use AppData/Roaming
         elif self.system == 'Windows':
             self.cfg_dir = os.path.expandvars(R'%AppData%\\ebfe\\')
 
@@ -98,6 +100,9 @@ class settings_manager ():
             dmsg('Error creating settings folder and subfolders: {}', self.cfg_dir)
         
         self.cfg_file = self.cfg_dir + cfg_file
+        # Set into the global dict as well
+        O['cfg']['folder'] = self.cfg_dir
+        O['cfg']['file'] = self.cfg_file
 
         #cfg_file = os.path.expanduser(cfg_file)
         # if config file exists it is parsed
