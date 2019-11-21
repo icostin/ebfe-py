@@ -1,5 +1,6 @@
 # standard module imports
 import datetime
+import platform
 import io
 import os
 import ebfe
@@ -8,6 +9,7 @@ import ebfe
 import zlx.io
 import configparser
 from zlx.io import dmsg
+from ebfe.interface import O
 
 # internal module imports
 import ebfe.tui as tui
@@ -73,12 +75,39 @@ def open_file_from_uri (uri):
 class settings_manager ():
 
     def __init__ (self, cfg_file):
-        self.cfg_file = cfg_file
         self.cfg = configparser.ConfigParser()
+
+        self.system = platform.system()
+        # Set the config path by default to ebfe's folder
+        self.cfg_dir = os.path.dirname(os.path.realpath(__file__))
+        # For *nix try to use ~/.config
+        if self.system in ['Linux', 'Darwin', 'SunOS']:
+            self.cfg_dir = os.path.expandvars(R'$HOME/.config/ebfe/')
+        # For Windows try to use AppData/Roaming
+        elif self.system == 'Windows':
+            self.cfg_dir = os.path.expandvars(R'%AppData%\\ebfe\\')
+
+        dmsg("Creating settings file: {}", self.cfg_dir + cfg_file)
+
+        try:
+            if not os.path.isdir(self.cfg_dir):
+                os.makedirs(self.cfg_dir, mode=0o755)
+            if not os.path.isdir(self.cfg_dir + R'plugins'):
+                os.mkdir(self.cfg_dir + R'plugins', mode=0o755)
+            if not os.path.isdir(self.cfg_dir + R'themes'):
+                os.mkdir(self.cfg_dir + R'themes', mode=0o755)
+        except OSError:
+            dmsg('Error creating settings folder and subfolders: {}', self.cfg_dir)
+        
+        self.cfg_file = self.cfg_dir + cfg_file
+        # Set into the global dict as well
+        O['cfg']['folder'] = self.cfg_dir
+        O['cfg']['file'] = self.cfg_file
+
         #cfg_file = os.path.expanduser(cfg_file)
         # if config file exists it is parsed
-        if os.path.isfile(cfg_file):
-            self.cfg.read(cfg_file)
+        if os.path.isfile(self.cfg_file):
+            self.cfg.read(self.cfg_file)
         # if not, it's created with the sections
         else:
             self.cfg['main settings'] = {}
@@ -113,6 +142,36 @@ class settings_manager ():
     def save (self):
         with open(self.cfg_file, 'w') as cfg_file_handle:
             self.cfg.write(cfg_file_handle)
+
+#* command manager class ****************************************************
+class command_manager ():
+
+    def __init__ (self):
+        self.command_plugins = {
+                'test' : self.cmd_test,
+                'q' : self.cmd_q,
+                'g' : self.cmd_g,
+                }
+
+    def out (self, text):
+        O['console_out'](text)
+
+    def invoke_command (self, cmd, params):
+        if cmd in self.command_plugins:
+            self.command_plugins[cmd](cmd, params)
+
+    def cmd_test (self, cmd, params):
+        self.out('\'' + cmd + '\' command invoked with params: \'' + params + '\'')
+
+    def cmd_q (self, cmd, params):
+        O['quit']()
+
+    def cmd_g (self, cmd, params):
+        try:
+            ofs = int(params, 0)
+            O['hexedit_goto'](ofs)
+        except ValueError as e:
+            self.out('!Invalid offset: ' + params)
 
 #* title_bar ****************************************************************
 class title_bar (tui.window):
@@ -175,6 +234,7 @@ class status_bar (tui.window):
         )
         self.title = title
         self.tick = 0
+        self.text = ''
 
     def refresh_strip (self, row, col, width):
         dmsg('{}.refresh_strip(row={}, col={}, width={})', self, row, col, width)
@@ -182,6 +242,34 @@ class status_bar (tui.window):
         if row != 0:
             raise RuntimeError('boo')
         self.put(0, 0, stext, clip_col = col, clip_width = width)
+        if len(self.text) > 0:
+            self.put(0, 20, self.text)
+
+    def push (self, c):
+        self.text += c
+        self.refresh()
+
+    def pop (self):
+        c = ''
+        if len(self.text) > 0:
+            c = self.text[-1:]
+            self.text = self.text[:-1]
+        self.refresh()
+        return c
+
+    def empty (self):
+        self.text = ''
+        self.refresh()
+
+    def is_empty (self):
+        return self.text == ''
+
+    def get (self):
+        #TODO must handle exceptions!!!!!
+        v = int(self.text, 0)
+        self.text = ''
+        self.refresh()
+        return v
 
 #* job details **************************************************************
 class processing_details (tui.window):
@@ -231,8 +319,17 @@ class console (tui.container):
         self.add(self.input_win, max_size = 1)
 
     def _accept_input (self, text):
-        self.msg_win.set_content(len(self.msg_win.content), text)
-        self.input_win.erase_text()
+        if len(text) > 0:
+            self.msg_win.set_content(len(self.msg_win.content), '> '+text)
+            self.input_win.erase_text()
+
+            split = text.split(maxsplit=1)
+            if len(split) > 0:
+                rest = ''
+                if len(split) > 1:
+                    rest = split[1]
+
+                O['cmd'](split[0], rest)
 
     def on_focus_enter (self):
         self.msg_win.select_theme('active')
@@ -245,6 +342,18 @@ class console (tui.container):
         #self.input_win.select_theme('inactive')
         tui.container.on_focus_leave(self)
         #self.refresh()
+    
+    def pre_key (self, key):
+        if key == 'Ppage':
+            self.msg_win.scroll(-1)
+            return True
+        if key == 'Npage':
+            self.msg_win.scroll(1)
+            return True
+        if key == 'Ctrl-G':
+            self.msg_win.auto_scroll_on()
+            return True
+        return False
 
 #* stream_edit_window *******************************************************
 class stream_edit_window (tui.window):
@@ -296,7 +405,7 @@ class stream_edit_window (tui.window):
                 styles = self.INACTIVE_STYLES,
                 active_styles = self.ACTIVE_STYLES,
                 can_have_focus = True)
-        cfg = settings_manager(os.path.expanduser('~/.ebfe.ini'))
+        cfg = settings_manager('ebfe.ini')
         self.stream_uri = stream_uri
         self.stream_cache = stream_cache
         self.stream_offset = 0
@@ -314,6 +423,7 @@ class stream_edit_window (tui.window):
         self.character_display = cfg.get('window: hex edit', 'charmap', 'printable_ascii')
         self.charmap = globals()[self.character_display.upper() + '_CHARMAP']
         self.temp_demo_update_strip = False
+        O['hexedit_goto'] = self.move_cursor_to_offset
 
 # stream_edit_window.refresh_strip
     def refresh_strip (self, row, col, width):
@@ -423,10 +533,12 @@ class stream_edit_window (tui.window):
 
 # stream_edit_window.move_cursor_to_offset
     def move_cursor_to_offset (self, ofs, percentage=50):
-        stream_shift = self.stream_offset % self.items_per_line
-        shift = ofs % self.items_per_line
-        half = ((self.height * percentage) // 100) * self.items_per_line
-        self.stream_offset = ofs - half - shift + stream_shift
+        # if offset is present on the screen do not use percentage to get to it
+        if ofs < self.stream_offset or ofs > self.stream_offset + (self.height * self.items_per_line):
+            stream_shift = self.stream_offset % self.items_per_line
+            shift = ofs % self.items_per_line
+            half = ((self.height * percentage) // 100) * self.items_per_line
+            self.stream_offset = ofs - half - shift + stream_shift
         self.cursor_offset = ofs
         self.cursor_strip = (ofs - self.stream_offset) // self.items_per_line
         self.refresh()
@@ -515,19 +627,8 @@ class stream_edit_window (tui.window):
 
 # stream_edit_window.jump_to_end
     def jump_to_end (self):
-        #n = self.items_per_line
-        #end_offset = self.stream_cache.get_known_end_offset()
-        #if self.stream_offset <= end_offset \
-        #        and end_offset < self.stream_offset + self.height * n:
-        #    return
-        #start_ofs_mod = self.stream_offset % n
-        #bottom_offset = (end_offset - start_ofs_mod + n - 1) // n * n + start_ofs_mod
-        #self.stream_offset = bottom_offset - n * self.height
-        #if self.stream_offset <= start_ofs_mod - n:
-        #    self.stream_offset = start_ofs_mod
-        self.move_cursor_to_offset(self.stream_cache.get_known_end_offset() - 1, 90)
-        #self.cursor_offset = self.stream_cache.get_known_end_offset() - 1
-        #self.move_cursor(0, 0)
+        #self.move_cursor_to_offset(self.stream_cache.get_known_end_offset() - 1, 90)
+        self.move_cursor_to_offset(self.stream_cache.get_known_end_offset() - 1, 95)
         self.refresh()
 
 # stream_edit_window.jump_to_begin
@@ -536,13 +637,19 @@ class stream_edit_window (tui.window):
         #self.stream_offset = self.stream_offset % n
         #if self.stream_offset > 0:
         #    self.stream_offset -= n;
-        self.cursor_offset = 0
+        ofs = 0
+        if not O['status_is_empty']():
+            ofs = O['status_get']()
+
+        self.cursor_offset = ofs
         self.move_cursor(0, 0)
         self.refresh()
 
 # stream_edit_window.on_key
     def on_key (self, key):
-        if key in ('j', 'J'): self.vmove(+1)
+        if key in ('0123456789xXaAbBcCdDeEfF'): O['status_push'](key)
+        elif key == ('Backspace'): O['status_pop']()
+        elif key in ('j', 'J'): self.vmove(+1)
         elif key in ('k', 'K'): self.vmove(-1)
         elif key in ('g',): self.jump_to_begin()
         elif key in ('G',): self.jump_to_end()
@@ -562,10 +669,31 @@ class stream_edit_window (tui.window):
         elif key in ('Ctrl-B',): self.vmove(-(self.height - 3)) # Ctrl-B
         elif key in ('Ctrl-D',): self.vmove(self.height // 3) # Ctrl-D
         elif key in ('Ctrl-U',): self.vmove(-(self.height // 3)) # Ctrl-U
-        elif key in ('Left'): self.move_cursor(-1, 0)
-        elif key in ('Up'): self.move_cursor(0, -1)
-        elif key in ('Right'): self.move_cursor(1, 0)
-        elif key in ('Down'): self.move_cursor(0, 1)
+
+        elif key in ('Left'): 
+            val = 1
+            if not O['status_is_empty']():
+                val = O['status_get']()
+            self.move_cursor(-val, 0)
+        
+        elif key in ('Up'): 
+            val = 1
+            if not O['status_is_empty']():
+                val = O['status_get']()
+            self.move_cursor(0, -val)
+        
+        elif key in ('Right'): 
+            val = 1
+            if not O['status_is_empty']():
+                val = O['status_get']()
+            self.move_cursor(val, 0)
+        
+        elif key in ('Down'): 
+            val = 1
+            if not O['status_is_empty']():
+                val = O['status_get']()
+            self.move_cursor(0, val)
+        
         else:
             dmsg("Unknown key: {}", key)
             return False
@@ -732,6 +860,9 @@ class main (tui.application):
         dmsg('stream windows: {!r}', self.stream_windows)
         self.active_stream_index = None
 
+        self.cmd_manager = command_manager()
+        O['cmd'] = self.cmd_manager.invoke_command
+
         self.panel = help_window()
         self.body = tui.hcontainer(wid = 'body')
         self.body.add(self.panel, weight = 0.3, min_size = 10, max_size = 60)
@@ -743,7 +874,13 @@ class main (tui.application):
         self.root.add(title_bar('EBFE'), max_size = 1)
         self.root.add(self.body, weight = 4)
         self.root.add(self.console_win, concealed = True)
-        self.root.add(status_bar(), max_size = 1)
+        sbar = status_bar()
+        self.root.add(sbar, max_size = 1)
+        O['status_push'] = sbar.push
+        O['status_pop'] = sbar.pop
+        O['status_empty'] = sbar.empty
+        O['status_get'] = sbar.get
+        O['status_is_empty'] = sbar.is_empty
 
         #self.set_active_stream(0)
         for i in range(len(self.stream_windows)):
@@ -751,6 +888,11 @@ class main (tui.application):
             dmsg('adding in container window for {!r}', file_uris[i])
             self.body.add(sw, index = i)
         self.active_stream_win = self.stream_windows[0]
+
+        #self.cmd_manager.stdout = self.console_win.msg_win
+        O['console_out'] = self.console_win.msg_win.general_out
+        
+        O['quit'] = self.quit
 
         self.root.focus_to(self.active_stream_win)
 
@@ -808,7 +950,11 @@ class main (tui.application):
             return True
 
         # handle keys not used by the focused window
-        if key in ('q', 'Q', 'Esc'): self.quit()
+        if key in ('q', 'Q', 'Esc'):
+            if O['status_is_empty']():
+                self.quit()
+            else:
+                O['status_empty']()
         elif key in (':',):
             self.root.set_item_visibility(self.console_win, True)
             self.root.focus_to(self.console_win)
