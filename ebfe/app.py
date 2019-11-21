@@ -585,6 +585,7 @@ class help_window (tui.simple_doc_window):
         key=active_help_key
         heading=active_help_heading
         topic=active_help_topic
+        selected_topic=active_selected_help_topic
     '''
 
     INACTIVE_STYLES = '''
@@ -593,6 +594,7 @@ class help_window (tui.simple_doc_window):
         key=inactive_help_key
         heading=inactive_help_heading
         topic=inactive_help_topic
+        selected_topic=inactive_selected_help_topic
     '''
 
     INIT_CONTENT = '''
@@ -627,21 +629,25 @@ with some default key-mappings to keep you going before you hit the shelves.
 
 {par}
 For more info:{br}
-{sp}-{tab}4{cpar}   {link}help hex_editor_modes{normal}hex editor modes{end_link}{br}
-{sp}-{tab}4{cpar}   {link}help config{normal}config file{end_link}{br}
+{sp}-{tab}4{cpar}   hex editor:
+        {link}help hex_editor_data_model{topic}data model{normal}{end_link},
+        {link}help hex_editor_modes{topic}modes{normal}{end_link}{br}
+{sp}-{tab}4{cpar}   {link}help config{topic}config file{normal}{end_link}{br}
 
 {hr}
     '''.strip()
 
+# help_window.__init__()
     def __init__ (self):
-        dmsg('help_win')
         tui.simple_doc_window.__init__(self,
             doc_fmt = self.INIT_CONTENT,
             styles = self.INACTIVE_STYLES,
             active_styles = self.ACTIVE_STYLES,
-            can_have_focus = True)
+            can_have_focus = True,
+            default_selection_style = 'selected_topic')
 
 
+#* DEFAULT_STYLE_MAP ********************************************************
 DEFAULT_STYLE_MAP = '''
     default attr=normal fg=7 bg=0
     normal_title attr=normal fg=1 bg=7
@@ -692,12 +698,14 @@ DEFAULT_STYLE_MAP = '''
     active_help_key attr=normal fg=10 bg=6
     active_help_heading attr=normal fg=9 bg=6
     active_help_topic attr=normal fg=5 bg=6
+    active_selected_help_topic attr=normal fg=5 bg=7
 
     inactive_help_normal attr=normal fg=7 bg=0
     inactive_help_stress attr=normal fg=15 bg=0
     inactive_help_key attr=normal fg=10 bg=0
     inactive_help_heading attr=normal fg=11 bg=0
     inactive_help_topic attr=normal fg=5 bg=0
+    inactive_selected_help_topic attr=normal fg=13 bg=0
 '''
 
 #* main *********************************************************************/

@@ -238,7 +238,11 @@ def split_strip (s, col):
     w = compute_text_width(s.text)
     if col > s.col and col < s.col + w:
         i = compute_index_of_column(s.text, col - s.col)
-        return (strip(s.text[:i], s.style_name, s.col), strip(s.text[i:], s.style_name, col))
+        a = s.__class__(*s.to_tuple())
+        a.text = s.text[:i]
+        b = s.__class__(*s.to_tuple())
+        b.text = s.text[i:]
+        return (a, b)
     return (s,)
 
 def trim_strips (sl, col, width = None, end_col = None, transform_strip = None):
@@ -1107,7 +1111,9 @@ class cc_window (window):
 
 # end cc_window
 
-link_data = zlx.record.make('tui.link_data', 'index command start_row start_col end_row end_col')
+link_data = zlx.record.make('tui.link_data', 'index command selection_restyler start_row start_col end_row end_col')
+
+doc_strip = zlx.record.make('tui.doc_strip', 'text style_name col link')
 
 #* simple_doc_window ********************************************************
 class simple_doc_window (window):
@@ -1119,7 +1125,8 @@ class simple_doc_window (window):
             active_styles = None,
             doc_fmt = '',
             doc_kwargs = {},
-            can_have_focus = True):
+            can_have_focus = True,
+            default_selection_style = 'selected'):
         window.__init__(self,
                 wid = wid,
                 styles = styles,
@@ -1128,6 +1135,8 @@ class simple_doc_window (window):
         self.set_doc(doc_fmt, **doc_kwargs)
         self.display_top_row = 0
         self.content_styles_ = { k: ''.join((STYLE_BEGIN, k, STYLE_END)) for k in self.inactive_style_markers if isinstance(k, str) }
+        self.default_selection_style = default_selection_style
+        self.selected_link = None
 
 # simple_doc_window._reset_content()
     def _reset_content (self):
@@ -1142,7 +1151,7 @@ class simple_doc_window (window):
         if self.last_row_width_ < self.width:
             default_style_name = self.inactive_style_markers[()]
             self.last_row_.append(
-                strip(fill_char * (self.width - self.last_row_width_),
+                doc_strip(fill_char * (self.width - self.last_row_width_),
                     default_style_name, self.last_row_width_))
             self.last_row_width_ = self.width
 
@@ -1154,13 +1163,13 @@ class simple_doc_window (window):
         self.content_.append(self.last_row_)
 
 # simple_doc_window._add_text()
-    def _add_text (self, text, style = None):
+    def _add_text (self, text, style = None, link = None):
         if style is None:
             style = self.last_row_[-1].style_name
-        if self.last_row_ and self.last_row_[-1].style_name == style:
+        if self.last_row_ and self.last_row_[-1].style_name == style and self.last_row_[-1].link == link:
             self.last_row_[-1].text += text
         else:
-            self.last_row_.append(strip(text, style, self.last_row_width_))
+            self.last_row_.append(doc_strip(text, style, self.last_row_width_, link))
         self.last_row_width_ += compute_text_width(text)
 
 # simple_doc_window._justify_last_row()
@@ -1217,6 +1226,9 @@ class simple_doc_window (window):
             end_link = ''.join((STYLE_BEGIN, 'end_link', STYLE_END)),
             )
 
+    def selection_restyler (self, s):
+        return self.default_selection_style
+
 # simple_doc_window._render()
     def _render (self):
         default_style_name = self.inactive_style_markers[()]
@@ -1260,7 +1272,7 @@ class simple_doc_window (window):
             elif style == 'no_justify':
                 justify = False
             elif style == 'space':
-                self._add_text(' ', current_style)
+                self._add_text(' ', current_style, link)
             elif style == 'indent':
                 n = int(text)
                 m = (self.last_row_width_ + n) // n * n
@@ -1269,16 +1281,19 @@ class simple_doc_window (window):
                     o = n
                 else:
                     o = m - self.last_row_width_
-                self._add_text(' ' * o, current_style)
+                self._add_text(' ' * o, current_style, link)
                 continue
             elif style == 'link':
                 if text.startswith('#'):
                     restyler, command = text.split('#', 3)[1:]
                 else:
+                    restyler = 'selection_restyler'
+                    command = text
                     pass
                 link = link_data(
                         index = len(self.links_),
                         command = text,
+                        selection_restyler = getattr(self, restyler),
                         start_row = len(self.content_) - 1,
                         start_col = self.last_row_width_)
                 continue
@@ -1287,17 +1302,18 @@ class simple_doc_window (window):
                 link.end_col = self.last_row_width_
                 self.links_.append(link)
                 dmsg('recording link: {!r}', link)
+                link = None
             else:
                 current_style = style
             if mode == 'verbatim':
                 while text:
                     if '\n' in text:
                         t, r = text.split('\n', 1)
-                        self._add_text(t, current_style)
+                        self._add_text(t, current_style, link)
                         self._new_row()
                         text = r
                     else:
-                        self._add_text(text, current_style)
+                        self._add_text(text, current_style, link)
                         break
             elif mode == 'paragraph':
                 first_para = True
@@ -1316,26 +1332,26 @@ class simple_doc_window (window):
                         first = False
                         if self.last_row_width_ + tw + spc <= self.width:
                             if spc:
-                                self._add_text(' ', current_style)
-                            self._add_text(text_chunk, current_style)
+                                self._add_text(' ', current_style, link)
+                            self._add_text(text_chunk, current_style, link)
                             continue
                         if wrap_indent + tw <= self.width:
                             if justify:
                                 self._justify_last_row()
                             self._new_row()
                             if wrap_indent:
-                                self._add_text(' ' * wrap_indent, current_style)
-                            self._add_text(text_chunk, current_style)
+                                self._add_text(' ' * wrap_indent, current_style, link)
+                            self._add_text(text_chunk, current_style, link)
                             continue
                         if spc:
                             if self.last_row_width_ and self.last_row_width_ + 1 + spc <= self.width:
-                                self._add_text(' ')
+                                self._add_text(' ', link)
                             else:
                                 self._new_row()
                         while text_chunk:
                             i = compute_index_of_column(text_chunk, self.width - self.last_row_width_)
                             if i is None: i = len(text_width)
-                            self._add_text(text_chunk[:i], current_style)
+                            self._add_text(text_chunk[:i], current_style, link)
                             text_chunk = text_chunk[i:]
                             if self.last_row_width_ == self.width:
                                 self._new_row()
@@ -1367,16 +1383,58 @@ class simple_doc_window (window):
         self.doc_kwargs = kwargs
         self._render()
 
+# simple_doc_window._prepare_strip()
+    def _prepare_strip (self, s):
+        sty = s.style_name
+        if s.link and s.link is self.selected_link:
+            sty = self.selected_link.selection_restyler(s)
+        return strip(s.text, self.style_markers[sty][1:-1], s.col)
+
 # simple_doc_window.refresh_strip()
     def refresh_strip (self, row, col, width):
         r = self.display_top_row + row
         if r >= 0 and r < len(self.content_):
             self._write_updates(row, 
                 trim_strips(self.content_[r], col, width, 
-                    transform_strip = lambda s: strip(s.text, self.style_markers[s.style_name][1:-1], s.col)))
+                    transform_strip = self._prepare_strip))
         else:
             self._write(row, col, self.default_style_name, ' ' * width)
 
+    def _next_lower_link (self):
+        if self.selected_link is None:
+            current_row = -1
+            start_index = 0
+        else:
+            current_row = self.selected_link.end_row
+            start_index = self.selected_link.index + 1
+        for i in range(start_index, len(self.links_)):
+            if self.links_[i].start_row > current_row:
+                return self.links_[i]
+        return None
+
+    def move_down (self):
+        link = self._next_lower_link()
+        if link and link.start_row >= self.display_top_row and link.start_row < self.display_top_row + self.height:
+            prev_link = self.selected_link
+            self.selected_link = link
+            if prev_link:
+                self.refresh(start_row = prev_link.start_row - self.display_top_row,
+                        height = prev_link.end_row + 1)
+            dmsg('selecting link: {!r}', link)
+            self.refresh(start_row = link.start_row - self.display_top_row,
+                    height = link.end_row - link.start_row + 1)
+        elif self.display_top_row + self.height < len(self.content_):
+            self.display_top_row += 1
+            dmsg('scrolling down')
+            self.refresh()
+        pass
+
+
+    def on_key (self, key):
+        if key in ('j', 'Down'):
+            self.move_down()
+        elif key in ('k', 'Up'):
+            self.move_up()
 
 #* input_line ***************************************************************
 class input_line (window):
