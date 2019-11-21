@@ -1448,6 +1448,19 @@ class simple_doc_window (window):
         else:
             self._write(row, col, self.default_style_name, ' ' * width)
 
+    def _next_link (self):
+        if self.selected_link is None:
+            return self.links_[0] if self.links_ else None
+        if self.selected_link.index + 1 < len(self.links_):
+            return self.links_[self.selected_link.index + 1]
+        return None
+
+    def _prev_link (self):
+        if self.selected_link is None: return None
+        if self.selected_link.index - 1 >= 0:
+            return self.links_[self.selected_link.index - 1]
+        return None
+
     def _next_lower_link (self):
         if self.selected_link is None:
             current_row = -1
@@ -1460,8 +1473,16 @@ class simple_doc_window (window):
                 return self.links_[i]
         return None
 
-    def move_down (self):
-        link = self._next_lower_link()
+    def _prev_upper_link (self):
+        if self.selected_link is None: return None
+        current_row = self.selected_link.start_row
+        start_index = self.selected_link.index - 1
+        for i in range(start_index, -1, -1):
+            if self.links_[i].start_row < current_row:
+                return self.links_[i]
+        return None
+
+    def _move (self, link, row_delta):
         if link and link.start_row >= self.display_top_row and link.start_row < self.display_top_row + self.height:
             prev_link = self.selected_link
             self.selected_link = link
@@ -1471,18 +1492,32 @@ class simple_doc_window (window):
             dmsg('selecting link: {!r}', link)
             self.refresh(start_row = link.start_row - self.display_top_row,
                     height = link.end_row - link.start_row + 1)
-        elif self.display_top_row + self.height < len(self.content_):
-            self.display_top_row += 1
-            dmsg('scrolling down')
+        elif row_delta > 0 and self.display_top_row + self.height < len(self.content_):
+            self.display_top_row += row_delta
+            dmsg('scrolling {}', row_delta)
             self.refresh()
-        pass
+        elif row_delta < 0 and self.display_top_row + row_delta >= 0:
+            self.display_top_row += row_delta
+            dmsg('scrolling {}', row_delta)
+            self.refresh()
 
+    def move_up (self):
+        self._move(self._prev_upper_link(), -1)
+
+    def move_down (self):
+        self._move(self._next_lower_link(), +1)
+
+    def move_left (self):
+        self._move(self._prev_link(), -1)
+
+    def move_right (self):
+        self._move(self._next_link(), +1)
 
     def on_key (self, key):
-        if key in ('j', 'Down'):
-            self.move_down()
-        elif key in ('k', 'Up'):
-            self.move_up()
+        if key in ('j', 'Down'): self.move_down()
+        elif key in ('k', 'Up'): self.move_up()
+        elif key in ('h', 'Left'): self.move_left()
+        elif key in ('l', 'Right'): self.move_right()
 
 #* input_line ***************************************************************
 class input_line (window):
