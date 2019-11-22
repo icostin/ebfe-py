@@ -10,11 +10,14 @@ import ebfe.tui as tui
 from zlx.io import dmsg
 from ebfe.interface import O
 
-tty = lambda: None
-
 class driver (tui.driver):
     def __init__ (self):
         tui.driver.__init__(self)
+
+        self.buffer = []
+
+        self.resize_signal = False
+        self.toggle = 'xx'
 
         self.stdout = sys.stdout.fileno()
         self.stdin = sys.stdin.fileno()
@@ -43,23 +46,32 @@ class driver (tui.driver):
             termios.tcsetattr(self.stdin, termios.TCSAFLUSH, [iflag, oflag, cflag, lflag, ispeed, ospeed, cc])
 
         self.hide_cursor()
+        self.move_to(0, 0)
 
     # Returns a tuple containing the state of ALT/escape key and the translated input
     # wait for 0.1 seconds before returning None if no key was pressed
     def get_message (self):
+        self.move_to(0, 0)
+        if self.resize_signal:
+            self.resize_signal = False
+            rows, columns, *_ = struct.unpack('HHHH', fcntl.ioctl(self.stdout, termios.TIOCGWINSZ, struct.pack('HHHH', 0, 0, 0, 0)))
+            return tui.resize_message(columns, rows)
+
         k = sys.stdin.read(1)
-        if k == 'q':
+        if len(k) == 1:
+            if k == '\x1b':
+                return tui.key_message('Esc')
             return tui.key_message(k)
-        elif k == '\0x1b':
+
+        elif len(k) > 1:
             return tui.key_message('Esc')
-        elif len(k) > 0:
-            return tui.key_message('Esc')
-            #print("k({}): ".format(len(k)), end='')
-            #for c in k:
-            #    print('{0:X}, '.format(ord(c)), end='')
-            #print("\r\n", end='')
-        #time.sleep(1)
+
         else:
+            print(self.toggle)
+            if self.toggle == 'xx':
+                self.toggle = 'OO'
+            else:
+                self.toggle = 'xx'
             return tui.message(name = 'timeout')
 
     def get_screen_size (self):
@@ -75,17 +87,31 @@ class driver (tui.driver):
                 bg_default = 0)
 
     def render_text (self, text, style_name, column, row):
-        self.move_to(column, row)
-        print(text, end='')
+        self.buffer.append('\x1b[{};{}H'.format(row+1, column+1) + self.style_map[style_name] + text + '\x1b[0m')
+        #self.move_to(column, row)
+        #print(self.style_map[style_name], end='')
+        #print(text, end='')
 
     def prepare_render_text (self):
         pass
 
     def finish_render_text (self):
-        pass
+        for l in self.buffer:
+            print(l, end='')
+        self.buffer = []
 
     def build_style (drv, style):
-        return ''
+        seq = '\x1b['
+
+        seq += str(style.fg + 30)
+        seq += ';'
+        seq += str(style.bg + 40)
+
+        #if style.attr & tui.A_BOLD: 
+        #    seq += ';1'
+        #seq += ';2'
+        seq += 'm'
+        return seq
 
     def set_cursor (self, mode, row, col):
         self.cursor_mode = mode
@@ -102,18 +128,19 @@ class driver (tui.driver):
         sys.stdout.write('\x1b[?25l')
 
     def move_to (self, x, y):
-        sys.stdout.write('\x1b[{};{}H'.format(y, x))
+        #sys.stdout.write('\x1b[{};{}f'.format(y, x))
+        print('\x1b[{};{}H'.format(y+1, x+1), end='')
 
     def restore_state(self):
+        self.move_to(0, 0)
+        self.cls()
         self.show_cursor()
         if len(self.term_settings) > 0:
             termios.tcsetattr(self.stdin, termios.TCSAFLUSH, self.term_settings)
 
 
 def sig_resize_func(signalnr, frame):
-    #TODO fix this to send a message 
-    if tty:
-        rows, columns, *_ = struct.unpack('HHHH', fcntl.ioctl(sys.stdout.fileno(), termios.TIOCGWINSZ, struct.pack('HHHH', 0, 0, 0, 0)))
+    O['drv'].resize_signal = True
    
 
 #return driver_runner(lambda drv, app = app: app.loop(drv))
