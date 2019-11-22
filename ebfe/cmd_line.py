@@ -23,6 +23,10 @@ def boot_driver_curses (cli):
 def boot_driver_mock (cli):
     raise RuntimeError('todo: mock driver')
 
+def boot_driver_rawtty (cli):
+    from ebfe.tui_rawtty import run
+    return run
+
 def cmd_interactive_edit (cli):
     app = ebfe.app.main(cli)
     drv_runner = globals()['boot_driver_' + cli.tui_driver](cli)
