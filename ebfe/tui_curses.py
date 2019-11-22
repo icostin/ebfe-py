@@ -4,6 +4,7 @@ import time
 import traceback
 import ebfe.tui as tui
 from zlx.io import dmsg
+from ebfe.interface import O
 
 class driver (tui.driver):
     def __init__ (self, scr):
@@ -110,7 +111,9 @@ class driver (tui.driver):
         return
 
 def wrapped_run (stdscr, func):
-    return func(driver(stdscr))
+    tty = driver(stdscr)
+    O['drv'] = tty
+    return func(tty)
 
 def run (func):
     os.environ.setdefault('ESCDELAY', '10')

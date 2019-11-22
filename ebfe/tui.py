@@ -1713,9 +1713,6 @@ class application (window):
         try:
             drv.register_styles(app.generate_style_map(drv.get_style_caps()))
             ss = drv.get_screen_size()
-            print("Let's see the app now------------------------------")
-            print(app)
-            print(ss)
             app.resize(width = ss.width, height = ss.height)
             while True:
                 drv.render(app.fetch_updates())
@@ -1731,8 +1728,5 @@ class application (window):
 
 #* run **********************************************************************
 def run (driver_runner, app):
-    print("________ DRIVER RUNNER IN TUI")
-    print("driver_runner: " + repr(driver_runner))
-    print("app: " + repr(app))
     return driver_runner(lambda drv, app = app: app.loop(drv))
 
