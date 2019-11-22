@@ -910,6 +910,7 @@ class main (tui.application):
         return self.root.refresh_strip(row, col, width)
 
     def quit (self):
+        O['drv'].restore_state()
         self.server.shutdown()
         raise tui.app_quit(0)
 
