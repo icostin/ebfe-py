@@ -91,17 +91,19 @@ class driver (tui.driver):
         if len(k) == 1:
             if k == '\x1b':
                 return tui.key_message('Esc')
+            if k == '\x0d':
+                return tui.key_message('Enter')
             return tui.key_message(k)
 
         elif len(k) > 1:
             return tui.key_message('Esc')
 
         #print(self.toggle)
-        if self.toggle == 'xx':
-            self.toggle = 'OO'
-        else:
-            self.toggle = 'xx'
-        sys.stdout.flush()
+        #if self.toggle == 'xx':
+        #    self.toggle = 'OO'
+        #else:
+        #    self.toggle = 'xx'
+        #sys.stdout.flush()
         return tui.message(name = 'timeout')
 
     def get_screen_size (self):
@@ -129,6 +131,7 @@ class driver (tui.driver):
     def finish_render_text (self):
         for l in self.buffer:
             sys.stdout.write(l)
+            #print(l, flush=True)
         sys.stdout.flush()
         self.buffer = []
 
@@ -163,7 +166,6 @@ class driver (tui.driver):
         sys.stdout.flush()
 
     def move_to (self, x, y):
-        #sys.stdout.write('\x1b[{};{}f'.format(y, x))
         sys.stdout.write('\x1b[{};{}H'.format(y+1, x+1))
         sys.stdout.flush()
 
