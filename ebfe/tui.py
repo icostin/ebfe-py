@@ -1283,6 +1283,7 @@ class simple_doc_window (window):
         dmsg('default_style_name: {}', default_style_name)
         if self.width < 1: return
         self.empty_row_strips_ = [strip(' ' * self.width, default_style_name, 0)]
+        prev_selection_index = self.selected_link.index if self.selected_link else None
         self._reset_content()
         doc = self.doc_fmt.format(**self.STYLE_CMDS, **self.doc_kwargs, **self.content_styles_)
         mode = 'verbatim'
@@ -1405,7 +1406,7 @@ class simple_doc_window (window):
                                 self._new_row()
                 pass
         self._fill_to_eol()
-        self.link_selected_ = None
+        self.selected_link = None if prev_selection_index is None else self.links_[prev_selection_index]
         dmsg('render: {!r}', self.content_)
 
 # simple_doc_window.on_resize()
