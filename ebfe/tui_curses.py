@@ -21,7 +21,7 @@ class driver (tui.driver):
         self.cursor_row = 0
         self.cursor_col = 0
 
-    # Returns a tuple containing the state of ALT/escape key and the translated input
+# Returns a tuple containing the state of ALT/escape key and the translated input
     # wait for 0.1 seconds before returning None if no key was pressed
     def get_message (self):
         esc = False
