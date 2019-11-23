@@ -119,19 +119,23 @@ class driver (tui.driver):
                 bg_default = 0)
 
     def render_text (self, text, style_name, column, row):
-        self.buffer.append('\x1b[{};{}H'.format(row+1, column+1) + self.style_map[style_name] + text)
-        #self.buffer.append('\x1b[{};{}H'.format(row+1, column+1) + self.style_map[style_name] + text + '\x1b[0m')
-        #self.move_to(column, row)
-        #print(self.style_map[style_name], end='')
-        #print(text, end='')
+        self.buffer.append((column, row, '\x1b[{};{}H'.format(row+1, column+1), self.style_map[style_name], text))
 
     def prepare_render_text (self):
         pass
 
     def finish_render_text (self):
+        column = -1
+        line = -1
         for l in self.buffer:
-            sys.stdout.write(l)
-            #print(l, flush=True)
+            dbg = ''
+            if column != l[0] or line != l[1]:
+                sys.stdout.write(l[2])
+                dbg += l[2]
+            sys.stdout.write(l[3] + l[4])
+            line = l[1]
+            column = l[0] + len(l[4])
+            dmsg('############# {}', dbg+l[3]+l[4])
         sys.stdout.flush()
         self.buffer = []
 
