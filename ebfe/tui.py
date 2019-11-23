@@ -242,6 +242,7 @@ def split_strip (s, col):
         a.text = s.text[:i]
         b = s.__class__(*s.to_tuple())
         b.text = s.text[i:]
+        b.col = col
         return (a, b)
     return (s,)
 
