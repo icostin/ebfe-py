@@ -758,9 +758,9 @@ with some default key-mappings to keep you going before you hit the shelves.
 {par}
 For more info:{br}
 {sp}-{tab}4{cpar}   hex editor:
-        {link}help hex_editor_data_model{topic}data model{normal}{end_link},
-        {link}help hex_editor_modes{topic}modes{normal}{end_link}{br}
-{sp}-{tab}4{cpar}   {link}help config{topic}config file{normal}{end_link}{br}
+        {link}test hex_editor_data_model{topic}data model{normal}{end_link},
+        {link}test hex_editor_modes{topic}modes{normal}{end_link}{br}
+{sp}-{tab}4{cpar}   {link}g 0{topic}config file{normal}{end_link}{br}
 
 {hr}
     '''.strip()
@@ -774,6 +774,8 @@ For more info:{br}
             can_have_focus = True,
             default_selection_style = 'selected_topic')
 
+    def run_command (self, cmd):
+        O['cmd'](*cmd.split(' ', 1))
 
 #* DEFAULT_STYLE_MAP ********************************************************
 DEFAULT_STYLE_MAP = '''

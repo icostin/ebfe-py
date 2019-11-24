@@ -1515,11 +1515,19 @@ class simple_doc_window (window):
     def move_right (self):
         self._move(self._next_link(), +1)
 
+    def run_command (self, cmd):
+        '''derive to perform some action when a command needs to be executed'''
+        dmsg('running command: {!r}', cmd)
+
     def on_key (self, key):
         if key in ('j', 'Down'): self.move_down()
         elif key in ('k', 'Up'): self.move_up()
         elif key in ('h', 'Left'): self.move_left()
         elif key in ('l', 'Right'): self.move_right()
+        elif key == 'Enter':
+            if self.selected_link and self.selected_link.start_row >= self.display_top_row and self.selected_link.end_row < self.display_top_row + self.height:
+                self.run_command(self.selected_link.command)
+
 
 #* input_line ***************************************************************
 class input_line (window):
